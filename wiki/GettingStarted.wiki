@@ -1,0 +1,4 @@
+* Unzip GWT downloaded from http://code.google.com/webtoolkit/download.html 
+into D:\Software\Java\gwt-windows-1.4.60
+* Checkout the source code
+* In the trunk of the source code run Fitness-shell.cmd 
