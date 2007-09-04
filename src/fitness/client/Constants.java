@@ -50,4 +50,16 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     String historyDays();
     String oK();
     String cancel();
+
+    // Records
+    String newButton();
+    String date();
+    String desc();
+    String quantity();
+    String unit();
+    String ounce();
+    String hour();
+    String calPerUnit();
+    String weightRec();
+
 }
