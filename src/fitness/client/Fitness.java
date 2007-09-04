@@ -18,7 +18,9 @@ package fitness.client;
 
 import java.util.Date;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.ListIterator;
+import java.util.Comparator;
+import java.util.Collections;
 
 import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
@@ -181,7 +183,7 @@ public class Fitness implements EntryPoint {
         void update() {
             g.resizeRows(db.size());
             int i = 0;
-            for (Iterator it = db.iterator(); it.hasNext(); i++) {
+            for (ListIterator it = db.listIterator(); it.hasNext(); i++) {
                 Model.Record r = (Model.Record)it.next();
                 for (int j = 0; j < nCol; j++) {
                     g.setText(i, j, r.getField(j));
@@ -204,15 +206,14 @@ public class Fitness implements EntryPoint {
             b.addClickListener(new ClickListener() {
                 public void onClick(Widget sender) {
                     if (ok())
-                        hide();
+                        dismiss();
                 }
             });
             p.add(b);
             b = new Button(c.cancel());
             b.addClickListener(new ClickListener() {
                 public void onClick(Widget sender) {
-                    if (cancel())
-                        hide();
+                    dismiss();
                 }
             });
             p.add(b);
@@ -232,7 +233,7 @@ public class Fitness implements EntryPoint {
 
         boolean ok() {return true;}
 
-        boolean cancel() {return true;}
+        void dismiss() {hide();}
     }
 
     static class Record extends Dialog {
@@ -250,6 +251,11 @@ public class Fitness implements EntryPoint {
 
         void setDB(DB db) {this.db = db;}
         void setModelDB(Model.DB mdb) {this.mdb = mdb;}
+
+        void dismiss() {
+            date.setText("");
+            super.dismiss();
+        }
     }
 
     static class CalRec extends Record {
@@ -297,6 +303,13 @@ public class Fitness implements EntryPoint {
             db.update();
             return true;
         }
+
+        void dismiss() {
+            desc.setText("");
+            quantity.setText("");
+            calPerUnit.setText("");
+            super.dismiss();
+        }
     }
 
     static class WeightRec extends Record {
@@ -327,6 +340,10 @@ public class Fitness implements EntryPoint {
             return true;
         }
 
+        void dismiss() {
+            weight.setText("");
+            super.dismiss();
+        }
     }
 
     static class Options extends Dialog {
@@ -492,7 +509,25 @@ public class Fitness implements EntryPoint {
             }
         }
 
-        static class DB extends ArrayList {
+        static class DB extends ArrayList implements Comparator {
+            public int compare(Object o1, Object o2) {
+                return ((Record)o1).date.compareTo(((Record)o2).date);
+            }
+
+            public boolean add(Object o) {
+                int index = Collections.binarySearch(this, o, this);
+                if (index >= 0) {
+                    while (compare(get(index), o) == 0)
+                        index++;
+                    add(index, o);
+                    alert("found "+index);
+                }
+                else {
+                    add(-index - 1, o);
+                    alert("not found "+(-index - 1));
+                }
+                return true;
+            }
         }
 
         final static DB food = new DB();
@@ -507,6 +542,8 @@ public class Fitness implements EntryPoint {
             weight.add(new WeightRec("1/1/04", 90.0));
             weight.add(new WeightRec("4/2/04", 87.0));
             weight.add(new WeightRec("5/7/04", 84.0));
+            weight.add(new WeightRec("4/2/04", 87.1));
+            weight.add(new WeightRec("4/2/04", 87.2));
         }
 
     }
