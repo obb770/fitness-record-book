@@ -29,7 +29,7 @@ import com.google.gwt.user.client.ui.TabPanel;
 import com.google.gwt.user.client.ui.SourcesTabEvents;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.VerticalPanel;
-import com.google.gwt.user.client.ui.HorizontalPanel;
+import com.google.gwt.user.client.ui.DockPanel;
 import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.Grid;
 import com.google.gwt.user.client.ui.ListBox;
@@ -37,29 +37,45 @@ import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.FlowPanel;
 import com.google.gwt.user.client.ui.RadioButton;
 import com.google.gwt.user.client.ui.Button;
-import com.google.gwt.user.client.ui.HasHorizontalAlignment;
+import com.google.gwt.user.client.ui.ClickListener;
+import com.google.gwt.user.client.ui.DialogBox;
 import com.google.gwt.user.client.ui.RootPanel;
 
 public class Fitness implements EntryPoint {
 
-    final static Constants c = (Constants)GWT.create(Constants.class);
+    static void alert(String message) {
+        System.err.println(message);
+    }
+
+    static Constants c = (Constants)GWT.create(Constants.class);
+    static TabPanel tp;
+    static Totals totals;
+    static DB food;
+    static DB pA;
+    static DB weight;
+    static Options options;
     
     public void onModuleLoad() {
-        final TabPanel tp = new TabPanel() {;
+        totals = new Totals();
+        food = new DB(Model.food, 3, new CalRec(c.editFood(), c.foodUnits())); 
+        pA = new DB(Model.pA, 3, new CalRec(c.editPA(), c.pAUnits())); 
+        weight = new DB(Model.weight, 2, new WeightRec(c.editWeight()));
+        options = new Options();
+
+        tp = new TabPanel() {;
             {
-                add(new Totals(), c.totals());
-                add(new Table(Model.food, 3), c.food());
-                add(new Table(Model.pA, 3), c.pA());
-                add(new Table(Model.weight, 2), c.weight());
-                add(new Options(), c.options());
+                add(Fitness.totals, c.totals());
+                add(Fitness.food, c.food());
+                add(Fitness.pA, c.pA());
+                add(Fitness.weight, c.weight());
                 selectTab(0);
             }
 
             public boolean onBeforeTabSelected(SourcesTabEvents sender,
                                                int tabIndex) {
                 Widget tab = getWidget(tabIndex);
-                if (tab instanceof Table) {
-                    ((Table)tab).update();
+                if (tab instanceof DB) {
+                    ((DB)tab).update();
                 }
                 return super.onBeforeTabSelected(sender, tabIndex);
             }
@@ -67,7 +83,7 @@ public class Fitness implements EntryPoint {
         RootPanel.get().add(tp);
     }
 
-    class Totals extends Composite {
+    static class Totals extends Composite {
         Totals() {
             VerticalPanel vp = new VerticalPanel();
             Grid g = new Grid(1, 2);
@@ -115,29 +131,49 @@ public class Fitness implements EntryPoint {
             g.setWidth("100%");
             vp.add(g);
             
+            FlowPanel p = new FlowPanel();
+            Button b = new Button(c.options());
+            b.addClickListener(new ClickListener() {
+                public void onClick(Widget sender) {
+                    Fitness.options.show();
+                }
+            });
+            p.add(b);
+            vp.add(p);
+            vp.setCellHorizontalAlignment(p, VerticalPanel.ALIGN_CENTER);
+
             initWidget(vp);
         }
     }
 
-    class Table extends Composite {
+    static class DB extends Composite {
         final Model.DB db;
         final int nCol;
+        final Record record;
         final Grid g;
 
-        Table(Model.DB db, int nCol) {
+        DB(Model.DB db, int nCol, Record record) {
             VerticalPanel vp = new VerticalPanel();
-
-            FlowPanel p = new FlowPanel();
-            p.add(new Button(c.newButton()));
-            vp.add(p);
-            vp.setCellHorizontalAlignment(
-                p, HasHorizontalAlignment.ALIGN_CENTER);
 
             this.db = db;
             this.nCol = nCol;
+            this.record = record;
+            record.setDB(this);
+            record.setModelDB(db);
             g = new Grid(0, nCol);
             g.setWidth("100%");
             vp.add(new ScrollPanel(g));
+
+            FlowPanel p = new FlowPanel();
+            Button b = new Button(c.newButton());
+            b.addClickListener(new ClickListener() {
+                public void onClick(Widget sender) {
+                    DB.this.record.show();
+                }
+            });
+            p.add(b);
+            vp.add(p);
+            vp.setCellHorizontalAlignment(p, VerticalPanel.ALIGN_CENTER);
 
             initWidget(vp);
         }
@@ -154,22 +190,149 @@ public class Fitness implements EntryPoint {
         }
     }
 
-    class PA extends Composite {
-        PA() {
-            VerticalPanel vp = new VerticalPanel();
-            initWidget(vp);
+    static class Dialog extends DialogBox {
+        final private DockPanel dp;
+
+        Dialog(String title) {
+            setText(title);
+            
+            dp = new DockPanel();
+            dp.setSpacing(4);
+
+            FlowPanel p = new FlowPanel();
+            Button b = new Button(c.oK());
+            b.addClickListener(new ClickListener() {
+                public void onClick(Widget sender) {
+                    if (ok())
+                        hide();
+                }
+            });
+            p.add(b);
+            b = new Button(c.cancel());
+            b.addClickListener(new ClickListener() {
+                public void onClick(Widget sender) {
+                    if (cancel())
+                        hide();
+                }
+            });
+            p.add(b);
+            dp.add(p, DockPanel.SOUTH);
+            dp.setCellHorizontalAlignment(p, DockPanel.ALIGN_CENTER);
+
+            setWidget(dp);
+
+            int left = RootPanel.get().getAbsoluteLeft() + 30;
+            int top = RootPanel.get().getAbsoluteTop() + 30;
+            setPopupPosition(left, top);
+        }
+
+        protected void setCenter(Widget center) {
+            dp.add(center, DockPanel.CENTER);
+        }
+
+        boolean ok() {return true;}
+
+        boolean cancel() {return true;}
+    }
+
+    static class Record extends Dialog {
+        protected final Grid g = new Grid(2, 2);
+        protected final TextBox date = new TextBox();
+        protected DB db;
+        protected Model.DB mdb;
+
+        Record(String title) {
+            super(title);
+            g.setText(0, 0, c.date());
+            g.setWidget(0, 1, date);
+            setCenter(g);
+        }
+
+        void setDB(DB db) {this.db = db;}
+        void setModelDB(Model.DB mdb) {this.mdb = mdb;}
+    }
+
+    static class CalRec extends Record {
+        private final TextBox desc = new TextBox();
+        private final TextBox quantity = new TextBox();
+        private final ListBox unit = new ListBox();
+        private final TextBox calPerUnit = new TextBox();
+
+        CalRec(String title, String[] units) {
+            super(title);
+            g.resizeRows(5);
+
+            g.setText(1, 0, c.desc());
+            g.setWidget(1, 1, desc);
+
+            g.setText(2, 0, c.quantity());
+            g.setWidget(2, 1, quantity);
+
+            g.setText(3, 0, c.unit());
+            for (int i = 0; i < units.length; i++) {
+                unit.addItem(units[i]);
+            }
+            g.setWidget(3, 1, unit);
+
+            g.setText(4, 0, c.calPerUnit());
+            g.setWidget(4, 1, calPerUnit);
+        }
+
+        boolean ok() {
+            try {
+                Model.CalRec cr = 
+                    new Model.CalRec(date.getText(), desc.getText(), 
+                                     Double.parseDouble(quantity.getText()),
+                                     Double.parseDouble(calPerUnit.getText()));
+                mdb.add(cr);
+            }
+            catch (NumberFormatException nfe) {
+                alert(c.badQuantityOrCalPerUnit());
+                return false;
+            }
+            catch (IllegalArgumentException iae) {
+                alert(c.badDate());
+                return false;
+            }
+            db.update();
+            return true;
         }
     }
 
-    class Weight extends Composite {
-        Weight() {
-            VerticalPanel vp = new VerticalPanel();
-            initWidget(vp);
+    static class WeightRec extends Record {
+        private final TextBox weight = new TextBox();
+
+        WeightRec(String title) {
+            super(title);
+            g.setText(1, 0, c.weightRec());
+            g.setWidget(1, 1, weight);
         }
+
+        boolean ok() {
+            try {
+                Model.WeightRec wr = 
+                    new Model.WeightRec(date.getText(), 
+                                        Double.parseDouble(weight.getText()));
+                mdb.add(wr);
+            }
+            catch (NumberFormatException nfe) {
+                alert(c.badWeight());
+                return false;
+            }
+            catch (IllegalArgumentException iae) {
+                alert(c.badDate());
+                return false;
+            }
+            db.update();
+            return true;
+        }
+
     }
 
-    class Options extends Composite {
+    static class Options extends Dialog {
         Options() {
+            super(c.options());
+
             VerticalPanel vp = new VerticalPanel();
             Grid g = new Grid(6, 2);
 
@@ -214,14 +377,8 @@ public class Fitness implements EntryPoint {
             g.setWidth("100%");
             vp.add(g);
 
-            p = new FlowPanel();
-            p.add(new Button(c.oK()));
-            p.add(new Button(c.cancel()));
-            vp.add(p);
-            vp.setCellHorizontalAlignment(
-                p, HasHorizontalAlignment.ALIGN_CENTER);
+            setCenter(vp);
 
-            initWidget(vp);
         }
     }
 
@@ -286,9 +443,10 @@ public class Fitness implements EntryPoint {
             final Date date;
             final String dateStr;
 
-            Record(Date date) {
-                this.date = date;
-                this.dateStr = 
+            Record(String dateStr) {
+                this.date = new Date(dateStr); // FIXME: use DateTimeFormat
+                                               // FIXME: catch IllegalArgument 
+                this.dateStr = // FIXME: use DateTimeFormat
                     "" + (date.getMonth() + 1) + "/" + date.getDate();
             }
 
@@ -298,16 +456,14 @@ public class Fitness implements EntryPoint {
         static class CalRec extends Record {
             final String desc;
             final String quantity;
-            final String unit;
             final String calPerUnit;
             final String calories;
 
-            CalRec(Date date, String desc, double quantity, 
-                   Unit unit, double calPerUnit) {
-                super(date);
+            CalRec(String dateStr, 
+                   String desc, double quantity, double calPerUnit) {
+                super(dateStr);
                 this.desc = desc;
                 this.quantity = "" + quantity;
-                this.unit = unit.name;
                 this.calPerUnit = "" + calPerUnit;
                 this.calories = "" + (quantity * calPerUnit);
             }
@@ -319,20 +475,13 @@ public class Fitness implements EntryPoint {
                 return "";
             }
 
-            static class Unit {
-                final static Unit OUNCE = new Unit(c.ounce());
-                final static Unit HOUR = new Unit(c.hour());
-                final String name;
-                private Unit(String name) {this.name = name;}
-            }
-
         }
 
         static class WeightRec extends Record {
             final String weight;
 
-            WeightRec(Date date, double weight) {
-                super(date);
+            WeightRec(String dateStr, double weight) {
+                super(dateStr);
                 this.weight = "" + weight;
             }
 
@@ -351,15 +500,13 @@ public class Fitness implements EntryPoint {
         final static DB weight = new DB();
 
         static {
-            food.add(new CalRec(
-                new Date("5/7/04"), "pasta", 14.0, CalRec.Unit.OUNCE, 20.0));
+            food.add(new CalRec("5/7/04", "pasta", 14.0, 20.0));
 
-            pA.add(new CalRec(
-                new Date("5/7/04"), "walking", 0.5, CalRec.Unit.HOUR, 300.0));
+            pA.add(new CalRec("5/7/04", "walking", 0.5, 300.0));
 
-            weight.add(new WeightRec(new Date("1/1/04"), 90.0));
-            weight.add(new WeightRec(new Date("4/2/04"), 87.0));
-            weight.add(new WeightRec(new Date("5/7/04"), 84.0));
+            weight.add(new WeightRec("1/1/04", 90.0));
+            weight.add(new WeightRec("4/2/04", 87.0));
+            weight.add(new WeightRec("5/7/04", 84.0));
         }
 
     }
