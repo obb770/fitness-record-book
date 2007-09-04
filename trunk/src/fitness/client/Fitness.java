@@ -520,11 +520,9 @@ public class Fitness implements EntryPoint {
                     while (compare(get(index), o) == 0)
                         index++;
                     add(index, o);
-                    alert("found "+index);
                 }
                 else {
                     add(-index - 1, o);
-                    alert("not found "+(-index - 1));
                 }
                 return true;
             }
