@@ -53,13 +53,20 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
 
     // Records
     String newButton();
+    String editFood();
+    String editPA();
     String date();
     String desc();
     String quantity();
     String unit();
-    String ounce();
-    String hour();
+    String[] foodUnits();
+    String[] pAUnits();
     String calPerUnit();
+    String editWeight();
     String weightRec();
+
+    String badDate();
+    String badQuantityOrCalPerUnit();
+    String badWeight();
 
 }
