@@ -34,6 +34,8 @@ import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.DockPanel;
 import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.Grid;
+import com.google.gwt.user.client.ui.TableListener;
+import com.google.gwt.user.client.ui.SourcesTableEvents;
 import com.google.gwt.user.client.ui.ListBox;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.FlowPanel;
@@ -148,22 +150,23 @@ public class Fitness implements EntryPoint {
         }
     }
 
-    static class DB extends Composite {
-        final Model.DB db;
+    static class DB extends Composite implements TableListener {
+        final Model.DB mdb;
         final int nCol;
         final Record record;
         final Grid g;
 
-        DB(Model.DB db, int nCol, Record record) {
+        DB(Model.DB mdb, int nCol, Record record) {
             VerticalPanel vp = new VerticalPanel();
 
-            this.db = db;
+            this.mdb = mdb;
             this.nCol = nCol;
             this.record = record;
             record.setDB(this);
-            record.setModelDB(db);
+            record.setModelDB(mdb);
             g = new Grid(0, nCol);
             g.setWidth("100%");
+            g.addTableListener(this);
             vp.add(new ScrollPanel(g));
 
             FlowPanel p = new FlowPanel();
@@ -181,18 +184,24 @@ public class Fitness implements EntryPoint {
         }
 
         void update() {
-            g.resizeRows(db.size());
+            g.resizeRows(mdb.size());
             int i = 0;
-            for (ListIterator it = db.listIterator(); it.hasNext(); i++) {
+            for (ListIterator it = mdb.listIterator(); it.hasNext(); i++) {
                 Model.Record r = (Model.Record)it.next();
                 for (int j = 0; j < nCol; j++) {
                     g.setText(i, j, r.getField(j));
                 }
             }
         }
+
+        public void onCellClicked(SourcesTableEvents sender, 
+                                  int row, int cell) {
+            record.init(row);
+            record.show();
+        }
     }
 
-    static class Dialog extends DialogBox {
+    static abstract class Dialog extends DialogBox {
         final private DockPanel dp;
 
         Dialog(String title) {
@@ -205,8 +214,7 @@ public class Fitness implements EntryPoint {
             Button b = new Button(c.oK());
             b.addClickListener(new ClickListener() {
                 public void onClick(Widget sender) {
-                    if (ok())
-                        dismiss();
+                    ok();
                 }
             });
             p.add(b);
@@ -231,16 +239,17 @@ public class Fitness implements EntryPoint {
             dp.add(center, DockPanel.CENTER);
         }
 
-        boolean ok() {return true;}
+        abstract void ok();
 
         void dismiss() {hide();}
     }
 
-    static class Record extends Dialog {
+    static abstract class Record extends Dialog {
         protected final Grid g = new Grid(2, 2);
         protected final TextBox date = new TextBox();
         protected DB db;
         protected Model.DB mdb;
+        protected int row = -1;
 
         Record(String title) {
             super(title);
@@ -252,9 +261,26 @@ public class Fitness implements EntryPoint {
         void setDB(DB db) {this.db = db;}
         void setModelDB(Model.DB mdb) {this.mdb = mdb;}
 
+        void apply(Model.Record mr) {
+            if (row >= 0 && mdb.compare(mr, mdb.get(row)) == 0) {
+                mdb.set(row, mr);
+            }
+            else {
+                mdb.add(mr);
+            }
+            db.update();
+            dismiss();
+        }
+
         void dismiss() {
+            row = -1;
             date.setText("");
             super.dismiss();
+        }
+
+        void init(int row) {
+            this.row = row;
+            date.setText(((Model.Record)mdb.get(row)).dateStr);
         }
     }
 
@@ -284,24 +310,20 @@ public class Fitness implements EntryPoint {
             g.setWidget(4, 1, calPerUnit);
         }
 
-        boolean ok() {
+        void ok() {
             try {
-                Model.CalRec cr = 
+                Model.CalRec mcr = 
                     new Model.CalRec(date.getText(), desc.getText(), 
                                      Double.parseDouble(quantity.getText()),
                                      Double.parseDouble(calPerUnit.getText()));
-                mdb.add(cr);
+                apply(mcr);
             }
             catch (NumberFormatException nfe) {
                 alert(c.badQuantityOrCalPerUnit());
-                return false;
             }
             catch (IllegalArgumentException iae) {
                 alert(c.badDate());
-                return false;
             }
-            db.update();
-            return true;
         }
 
         void dismiss() {
@@ -309,6 +331,15 @@ public class Fitness implements EntryPoint {
             quantity.setText("");
             calPerUnit.setText("");
             super.dismiss();
+        }
+
+        void init(int row) {
+            super.init(row);
+            Model.CalRec mcr = (Model.CalRec)mdb.get(row);
+            desc.setText(mcr.desc);
+            quantity.setText("" + mcr.quantity);
+            //FIXME: set unit (need to save it first in the model)
+            calPerUnit.setText("" + mcr.calPerUnit);
         }
     }
 
@@ -321,28 +352,29 @@ public class Fitness implements EntryPoint {
             g.setWidget(1, 1, weight);
         }
 
-        boolean ok() {
+        void ok() {
             try {
-                Model.WeightRec wr = 
+                Model.WeightRec mwr = 
                     new Model.WeightRec(date.getText(), 
                                         Double.parseDouble(weight.getText()));
-                mdb.add(wr);
+                apply(mwr);
             }
             catch (NumberFormatException nfe) {
                 alert(c.badWeight());
-                return false;
             }
             catch (IllegalArgumentException iae) {
                 alert(c.badDate());
-                return false;
             }
-            db.update();
-            return true;
         }
 
         void dismiss() {
             weight.setText("");
             super.dismiss();
+        }
+
+        void init(int row) {
+            super.init(row);
+            weight.setText(((Model.WeightRec)mdb.get(row)).weight);
         }
     }
 
@@ -397,6 +429,8 @@ public class Fitness implements EntryPoint {
             setCenter(vp);
 
         }
+
+        void ok() {}
     }
 
     static class Model {
@@ -459,15 +493,20 @@ public class Fitness implements EntryPoint {
         static abstract class Record {
             final Date date;
             final String dateStr;
+            final String dateViewStr;
 
             Record(String dateStr) {
+                this.dateStr = dateStr;
                 this.date = new Date(dateStr); // FIXME: use DateTimeFormat
                                                // FIXME: catch IllegalArgument 
-                this.dateStr = // FIXME: use DateTimeFormat
+                this.dateViewStr = // FIXME: use DateTimeFormat
                     "" + (date.getMonth() + 1) + "/" + date.getDate();
             }
 
-            abstract String getField(int index);
+            String getField(int index) {
+                if (index == 0) {return dateViewStr;}
+                return "";
+            }
         }
 
         static class CalRec extends Record {
@@ -486,10 +525,9 @@ public class Fitness implements EntryPoint {
             }
 
             String getField(int index) {
-                if (index == 0) {return dateStr;}
                 if (index == 1) {return desc;}
                 if (index == 2) {return calories;}
-                return "";
+                return super.getField(index);
             }
 
         }
@@ -503,9 +541,8 @@ public class Fitness implements EntryPoint {
             }
 
             String getField(int index) {
-                if (index == 0) {return dateStr;}
                 if (index == 1) {return weight;}
-                return "";
+                return super.getField(index);
             }
         }
 
