@@ -202,6 +202,8 @@ public class Fitness implements EntryPoint {
             vp.add(g);
 
             g = new Grid(1, 3);
+            fromDate.setReadOnly(true);
+            thruDate.setReadOnly(true);
             g.setWidget(0, 0, fromDate);
             g.setText(0, 1, c.thru());
             g.setWidget(0, 2, thruDate);
@@ -299,8 +301,9 @@ public class Fitness implements EntryPoint {
         void update() {
             int i = 0;
             for (Iterator it = mdb.range(); it.hasNext(); i++) {
-                g.resizeRows(i + 1);
                 Model.Record r = (Model.Record)it.next();
+                if (g.getRowCount() <= i)
+                    g.resizeRows(i + 1);
                 for (int j = 0; j < nCol; j++) {
                     g.setText(i, j, r.getField(j));
                 }
@@ -480,7 +483,16 @@ public class Fitness implements EntryPoint {
         }
     }
 
-    static class Options extends Dialog {
+    static class Options extends Dialog implements ClickListener {
+        TextBox metabolism;
+        RadioButton goalIsWeight;
+        RadioButton goalIsDeficit;
+        TextBox goalWeight;
+        TextBox goalDeficit;
+        RadioButton weightIsPounds;
+        RadioButton weightIsKilograms;
+        TextBox history;
+
         Options() {
             super(c.options());
 
@@ -488,51 +500,75 @@ public class Fitness implements EntryPoint {
             Grid g = new Grid(6, 2);
 
             g.setText(0, 0, c.metabolismOpt());
-            TextBox tb = new TextBox();
-            tb.setText(Model.metabolismOpt());
-            g.setWidget(0, 1, tb);
+            metabolism = new TextBox();
+            metabolism.setText("" + Model.Options.metabolism);
+            g.setWidget(0, 1, metabolism);
 
             g.setText(1, 0, c.goal());
             FlowPanel p = new FlowPanel();
-            RadioButton rb = new RadioButton(c.goal(), c.weightOptVal());
-            p.add(rb);
-            rb.setChecked(true); // FIXME: should be in the model
-            rb = new RadioButton(c.goal(), c.deficit());
-            p.add(rb);
+            goalIsWeight = new RadioButton(c.goal(), c.weightOptVal());
+            goalIsWeight.addClickListener(this);
+            p.add(goalIsWeight);
+            goalIsWeight.setChecked(Model.Options.goalIsWeight);
+            goalIsDeficit = new RadioButton(c.goal(), c.deficit());
+            goalIsDeficit.addClickListener(this);
+            p.add(goalIsDeficit);
+            goalIsDeficit.setChecked(Model.Options.goalIsDeficit);
             g.setWidget(1, 1, p);
 
             g.setText(2, 0, c.goalWeight());
-            tb = new TextBox();
-            tb.setText(Model.goalWeight());
-            g.setWidget(2, 1, tb);
+            goalWeight = new TextBox();
+            goalWeight.setText("" + Model.Options.goalWeight);
+            g.setWidget(2, 1, goalWeight);
 
             g.setText(3, 0, c.goalDeficit());
-            tb = new TextBox();
-            tb.setText(Model.goalDeficit());
-            g.setWidget(3, 1, tb);
+            goalDeficit = new TextBox();
+            goalDeficit.setText("" + Model.Options.goalDeficit);
+            g.setWidget(3, 1, goalDeficit);
 
             g.setText(4, 0, c.weightOpt());
             p = new FlowPanel();
-            rb = new RadioButton(c.weightOpt(), c.pounds());
-            p.add(rb);
-            rb = new RadioButton(c.weightOpt(), c.kilograms());
-            p.add(rb);
-            rb.setChecked(true); // FIXME: should be in the model
+            weightIsPounds = new RadioButton(c.weightOpt(), c.pounds());
+            p.add(weightIsPounds);
+            weightIsPounds.setChecked(Model.Options.weightIsPounds);
+            weightIsKilograms = new RadioButton(c.weightOpt(), c.kilograms());
+            p.add(weightIsKilograms);
+            weightIsKilograms.setChecked(Model.Options.weightIsKilograms);
             g.setWidget(4, 1, p);
 
             g.setText(5, 0, c.historyDays());
-            tb = new TextBox();
-            tb.setText(Model.historyDays());
-            g.setWidget(5, 1, tb);
+            history = new TextBox();
+            history.setText("" + Model.Options.history);
+            g.setWidget(5, 1, history);
 
             g.setWidth("100%");
             vp.add(g);
 
             setContent(vp);
 
+            onClick(null);
         }
 
-        void accept() {}
+        public void onClick(Widget sender) {
+            goalWeight.setReadOnly(!goalIsWeight.isChecked());
+            goalDeficit.setReadOnly(!goalIsDeficit.isChecked());
+        }
+
+        void accept() {
+            try {
+                Model.Options.update(
+                    Double.parseDouble(metabolism.getText()),
+                    goalIsWeight.isChecked(), goalIsDeficit.isChecked(),
+                    Double.parseDouble(goalWeight.getText()),
+                    Double.parseDouble(goalDeficit.getText()),
+                    weightIsPounds.isChecked(), weightIsKilograms.isChecked(),
+                    Integer.parseInt(history.getText()));
+                dismiss();
+            }
+            catch (NumberFormatException nfe) {
+                alert(c.badWeight()); // FIXME: should be another message
+            }
+        }
     }
 
     static class Model {
@@ -552,32 +588,56 @@ public class Fitness implements EntryPoint {
                 Totals.fromDate = fromDate;
                 Totals.thruDate = thruDate;
 
-                caloriesIn = "1604.0";
-                pACalories = "150.0";
+                double caloriesIn = 0.0;
+                for (Iterator it = food.range(); it.hasNext();) {
+                    CalRec cr = (CalRec)it.next();
+                    caloriesIn += cr.calories;
+                }
+                Totals.caloriesIn = "" + caloriesIn;
+                double pACalories = 0.0;
+                for (Iterator it = pA.range(); it.hasNext();) {
+                    CalRec cr = (CalRec)it.next();
+                    pACalories += cr.calories;
+                }
+                Totals.pACalories = "" + pACalories;
                 metabolism = "2032.8";
-                netCalories = "-578.8";
+                netCalories = "" + (caloriesIn - pACalories - 
+                                    Double.parseDouble(metabolism));
                 behavioralWeight = "60.0";
-                daysInRange = "1.0";
+                daysInRange = "" + (thruDate.getTime() - fromDate.getTime() + 
+                                    12 * 60 * 60 * 1000) / 
+                                   24 / 60 / 60 / 1000 + 1;
                 calsLeftToEat = "416.0";
             }
         }
 
+        static class Options {
+            static double metabolism = 11.0;
+            static boolean goalIsWeight = true;
+            static boolean goalIsDeficit = false;
+            static double goalWeight = 170.0;
+            static double goalDeficit = 0.0;
+            static boolean weightIsPounds = false;
+            static boolean weightIsKilograms = true;
+            static int history = 90;
 
-        // Options
-        static String metabolismOpt() {
-            return "11.0";
-        }
+            static void update(
+                double metabolism,
+                boolean goalIsWeight, boolean goalIsDeficit,
+                double goalWeight,
+                double goalDeficit,
+                boolean weightIsPounds, boolean weightIsKilograms,
+                int history) {
 
-        static String goalWeight() {
-            return "170.0";
-        }
-
-        static String goalDeficit() {
-            return "0.0";
-        }
-
-        static String historyDays() {
-            return "90";
+                Options.metabolism = metabolism;
+                Options.goalIsWeight = goalIsWeight;
+                Options.goalIsDeficit = goalIsDeficit;
+                Options.goalWeight = goalWeight;
+                Options.goalDeficit = goalDeficit;
+                Options.weightIsPounds = weightIsPounds;
+                Options.weightIsKilograms = weightIsKilograms;
+                Options.history = history;
+            }
         }
 
         // Records
@@ -601,19 +661,21 @@ public class Fitness implements EntryPoint {
             final String desc;
             final String quantity;
             final String calPerUnit;
-            final String calories;
+            final double calories;
+            final String caloriesStr;
 
             CalRec(Date date, String desc, double quantity, double calPerUnit) {
                 super(date);
                 this.desc = desc;
                 this.quantity = "" + quantity;
                 this.calPerUnit = "" + calPerUnit;
-                this.calories = "" + (quantity * calPerUnit);
+                this.calories = quantity * calPerUnit;
+                this.caloriesStr = "" + calories;
             }
 
             String getField(int index) {
                 if (index == 1) {return desc;}
-                if (index == 2) {return calories;}
+                if (index == 2) {return caloriesStr;}
                 return super.getField(index);
             }
 
