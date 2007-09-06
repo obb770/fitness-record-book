@@ -18,7 +18,7 @@ package fitness.client;
 
 import java.util.Date;
 import java.util.ArrayList;
-import java.util.ListIterator;
+import java.util.Iterator;
 import java.util.Comparator;
 import java.util.Collections;
 
@@ -147,6 +147,7 @@ public class Fitness implements EntryPoint {
         void setReadOnly(boolean readonly) {tb.setReadOnly(readonly);}
 
 
+        // FIXME: must update the parent totals page (add callback?) !!!!
         public void onChange(Widget sender) {// FIXME: DateTimeFormat? locale?
                                              // FIXME: format exception!!!
             date.setTime(Date.parse(((TextBox)sender).getText()));
@@ -255,6 +256,7 @@ public class Fitness implements EntryPoint {
                 fromDate.setReadOnly(false);
                 thruDate.setReadOnly(false);
             }
+            update();
         }
 
         void update() {
@@ -275,7 +277,8 @@ public class Fitness implements EntryPoint {
         final Record record;
         final Grid g;
 
-        DB(Model.DB mdb, int nCol, Record record) {
+        //FIXME: calculate nCol automatically
+        DB(Model.DB mdb, int nCol, Record record) { 
             this.mdb = mdb;
             this.nCol = nCol;
             this.record = record;
@@ -294,9 +297,9 @@ public class Fitness implements EntryPoint {
         }
 
         void update() {
-            g.resizeRows(mdb.size());
             int i = 0;
-            for (ListIterator it = mdb.listIterator(); it.hasNext(); i++) {
+            for (Iterator it = mdb.range(); it.hasNext(); i++) {
+                g.resizeRows(i + 1);
                 Model.Record r = (Model.Record)it.next();
                 for (int j = 0; j < nCol; j++) {
                     g.setText(i, j, r.getField(j));
@@ -534,6 +537,9 @@ public class Fitness implements EntryPoint {
 
     static class Model {
         static class Totals {
+            static Date fromDate;
+            static Date thruDate;
+
             static String caloriesIn;
             static String pACalories;
             static String metabolism;
@@ -543,6 +549,9 @@ public class Fitness implements EntryPoint {
             static String calsLeftToEat;
 
             static void update(Date fromDate, Date thruDate) {
+                Totals.fromDate = fromDate;
+                Totals.thruDate = thruDate;
+
                 caloriesIn = "1604.0";
                 pACalories = "150.0";
                 metabolism = "2032.8";
@@ -572,7 +581,7 @@ public class Fitness implements EntryPoint {
         }
 
         // Records
-        static abstract class Record {
+        static class Record {
             final Date date;
             final String dateViewStr;
 
@@ -641,6 +650,54 @@ public class Fitness implements EntryPoint {
                     add(-index - 1, o);
                 }
                 return true;
+            }
+
+            Iterator range() {
+                return new Range(this, Totals.fromDate, Totals.thruDate);
+            }
+
+            static class Range implements Iterator {
+                private DB db;
+                private Record thru;
+                private Iterator iter;
+                private Record next = null;
+
+                Range(DB db, Date fromDate, Date thruDate) {
+                    this.db = db;
+                    Record dummy = new Record(fromDate);
+                    thru = new Record(thruDate);
+                    int index = Collections.binarySearch(db, dummy, db);
+                    if (index >= 0) {
+                        while (index > 0 && 
+                               db.compare(db.get(index - 1), dummy) == 0)
+                            index--;
+                    }
+                    else {
+                        index = -index - 1;
+
+                    }
+                    iter = db.listIterator(index);
+                    if (iter.hasNext())
+                        next = (Record)iter.next();
+                }
+
+                public boolean hasNext() {
+                    return next != null;
+                }
+
+                public Object next() {
+                    Record curr = next;
+                    next = null;
+                    if (iter.hasNext()) {
+                        next = (Record)iter.next();
+                        if (db.compare(next, thru) > 0)
+                            next = null;
+                    }
+                    return curr;
+                }
+
+                public void remove() {}
+
             }
         }
 
