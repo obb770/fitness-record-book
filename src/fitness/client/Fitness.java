@@ -26,10 +26,8 @@ import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
 
 import com.google.gwt.user.client.ui.Widget;
-import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.TabPanel;
 import com.google.gwt.user.client.ui.SourcesTabEvents;
-import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.DockPanel;
 import com.google.gwt.user.client.ui.ScrollPanel;
@@ -78,16 +76,42 @@ public class Fitness implements EntryPoint {
             public boolean onBeforeTabSelected(SourcesTabEvents sender,
                                                int tabIndex) {
                 Widget tab = getWidget(tabIndex);
-                if (tab instanceof DB) {
-                    ((DB)tab).update();
-                }
+                ((Page)tab).update();
                 return super.onBeforeTabSelected(sender, tabIndex);
             }
         };
         RootPanel.get().add(tp);
     }
 
-    static class Totals extends Composite {
+    static class Page extends DockPanel {
+        FlowPanel buttons = new FlowPanel();
+
+        Page() {
+            setSpacing(4);
+            add(buttons, SOUTH);
+            setCellHorizontalAlignment(buttons, ALIGN_CENTER);
+        }
+
+        void setContent(Widget w) {
+            ScrollPanel sp = new ScrollPanel(w);
+            sp.setHeight("15em"); //FIXME: should this be in the style sheet?
+            add(sp, CENTER);
+        }
+
+        void addButton(String name, ClickListener cl) {
+            Button b = new Button(name);
+            b.addClickListener(cl);
+            buttons.add(b);
+        }
+
+        void update() {}
+    }
+
+    static class Totals extends Page {
+        final Grid tg;
+        final TextBox fromDate = new TextBox();
+        final TextBox thruDate = new TextBox();
+
         Totals() {
             VerticalPanel vp = new VerticalPanel();
             Grid g = new Grid(1, 2);
@@ -103,62 +127,54 @@ public class Fitness implements EntryPoint {
             vp.add(g);
 
             g = new Grid(1, 3);
-            g.setText(0, 0, Model.fromDate());
+            fromDate.setVisibleLength(8);
+            thruDate.setVisibleLength(8);
+            g.setWidget(0, 0, fromDate);
             g.setText(0, 1, c.thru());
-            g.setText(0, 2, Model.thruDate());
+            g.setWidget(0, 2, thruDate);
             g.setWidth("100%");
             vp.add(g);
 
-            g = new Grid(7, 2);
+            tg = new Grid(7, 2);
+            tg.setText(0, 0, c.caloriesIn());
+            tg.setText(1, 0, c.pACalories());
+            tg.setText(2, 0, c.metabolism());
+            tg.setText(3, 0, c.netCalories());
+            tg.setText(4, 0, c.behavioralWeight());
+            tg.setText(5, 0, c.daysInRange());
+            tg.setText(6, 0, c.calsLeftToEat());
+            tg.setWidth("100%");
+            update();
+            vp.add(tg);
 
-            g.setText(0, 0, c.caloriesIn());
-            g.setText(0, 1, Model.caloriesIn());
-
-            g.setText(1, 0, c.pACalories());
-            g.setText(1, 1, Model.pACalories());
-
-            g.setText(2, 0, c.metabolism());
-            g.setText(2, 1, Model.metabolism());
-
-            g.setText(3, 0, c.netCalories());
-            g.setText(3, 1, Model.netCalories());
-
-            g.setText(4, 0, c.behavioralWeight());
-            g.setText(4, 1, Model.behavioralWeight());
-
-            g.setText(5, 0, c.daysInRange());
-            g.setText(5, 1, Model.daysInRange());
-
-            g.setText(6, 0, c.calsLeftToEat());
-            g.setText(6, 1, Model.calsLeftToEat());
-
-            g.setWidth("100%");
-            vp.add(g);
+            setContent(vp);
             
-            FlowPanel p = new FlowPanel();
-            Button b = new Button(c.options());
-            b.addClickListener(new ClickListener() {
+            addButton(c.options(), new ClickListener() {
                 public void onClick(Widget sender) {
                     Fitness.options.show();
                 }
             });
-            p.add(b);
-            vp.add(p);
-            vp.setCellHorizontalAlignment(p, VerticalPanel.ALIGN_CENTER);
+        }
 
-            initWidget(vp);
+        void update() {
+            Model.Totals.update(fromDate.getText(), thruDate.getText());
+            tg.setText(0, 1, Model.Totals.caloriesIn);
+            tg.setText(1, 1, Model.Totals.pACalories);
+            tg.setText(2, 1, Model.Totals.metabolism);
+            tg.setText(3, 1, Model.Totals.netCalories);
+            tg.setText(4, 1, Model.Totals.behavioralWeight);
+            tg.setText(5, 1, Model.Totals.daysInRange);
+            tg.setText(6, 1, Model.Totals.calsLeftToEat);
         }
     }
 
-    static class DB extends Composite implements TableListener {
+    static class DB extends Page implements TableListener {
         final Model.DB mdb;
         final int nCol;
         final Record record;
         final Grid g;
 
         DB(Model.DB mdb, int nCol, Record record) {
-            VerticalPanel vp = new VerticalPanel();
-
             this.mdb = mdb;
             this.nCol = nCol;
             this.record = record;
@@ -167,20 +183,13 @@ public class Fitness implements EntryPoint {
             g = new Grid(0, nCol);
             g.setWidth("100%");
             g.addTableListener(this);
-            vp.add(new ScrollPanel(g));
+            setContent(g);
 
-            FlowPanel p = new FlowPanel();
-            Button b = new Button(c.newButton());
-            b.addClickListener(new ClickListener() {
+            addButton(c.newButton(), new ClickListener() {
                 public void onClick(Widget sender) {
                     DB.this.record.show();
                 }
             });
-            p.add(b);
-            vp.add(p);
-            vp.setCellHorizontalAlignment(p, VerticalPanel.ALIGN_CENTER);
-
-            initWidget(vp);
         }
 
         void update() {
@@ -434,41 +443,24 @@ public class Fitness implements EntryPoint {
     }
 
     static class Model {
-        //Totals
-        static String fromDate() {
-            return "Fri 5/7/04";
-        }
+        static class Totals {
+            static String caloriesIn;
+            static String pACalories;
+            static String metabolism;
+            static String netCalories;
+            static String behavioralWeight;
+            static String daysInRange;
+            static String calsLeftToEat;
 
-        static String thruDate() {
-            return "Fri 5/7/04";
-        }
-
-        static String caloriesIn() {
-            return "1604.0";
-        }
-
-        static String pACalories() {
-            return "150.0";
-        }
-
-        static String metabolism() {
-            return "2032.8";
-        }
-
-        static String netCalories() {
-            return "-578.8";
-        }
-
-        static String behavioralWeight() {
-            return "60.0";
-        }
-
-        static String daysInRange() {
-            return "1.0";
-        }
-
-        static String calsLeftToEat() {
-            return "416.0";
+            static void update(String fromDate, String thruDate) {
+                caloriesIn = "1604.0";
+                pACalories = "150.0";
+                metabolism = "2032.8";
+                netCalories = "-578.8";
+                behavioralWeight = "60.0";
+                daysInRange = "1.0";
+                calsLeftToEat = "416.0";
+            }
         }
 
 
@@ -553,8 +545,9 @@ public class Fitness implements EntryPoint {
 
             public boolean add(Object o) {
                 int index = Collections.binarySearch(this, o, this);
+                int size = size();
                 if (index >= 0) {
-                    while (compare(get(index), o) == 0)
+                    while (index < size && compare(get(index), o) == 0)
                         index++;
                     add(index, o);
                 }
@@ -573,6 +566,18 @@ public class Fitness implements EntryPoint {
             food.add(new CalRec("5/7/04", "pasta", 14.0, 20.0));
 
             pA.add(new CalRec("5/7/04", "walking", 0.5, 300.0));
+
+            weight.add(new WeightRec("1/1/04", 90.0));
+            weight.add(new WeightRec("4/2/04", 87.0));
+            weight.add(new WeightRec("5/7/04", 84.0));
+            weight.add(new WeightRec("4/2/04", 87.1));
+            weight.add(new WeightRec("4/2/04", 87.2));
+
+            weight.add(new WeightRec("1/1/04", 90.0));
+            weight.add(new WeightRec("4/2/04", 87.0));
+            weight.add(new WeightRec("5/7/04", 84.0));
+            weight.add(new WeightRec("4/2/04", 87.1));
+            weight.add(new WeightRec("4/2/04", 87.2));
 
             weight.add(new WeightRec("1/1/04", 90.0));
             weight.add(new WeightRec("4/2/04", 87.0));
