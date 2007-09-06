@@ -115,16 +115,16 @@ public class Fitness implements EntryPoint {
 
     static class DateView extends Composite implements ChangeListener {
         final TextBox tb = new TextBox();
-        Date date;
+        private Date date;
 
         DateView() {
             tb.setVisibleLength(8);
             tb.addChangeListener(this);
-            setDate(today());
+            setDate();
             initWidget(tb);
         }
 
-        String getText() {return tb.getText();}
+        Date getDate() {return date;}
 
         void setDate(Date date) { // FIXME: DateTimeFormat? locale?
             this.date = date;
@@ -142,11 +142,14 @@ public class Fitness implements EntryPoint {
             }
         }
 
+        void setDate() {setDate(today());}
+
         void setReadOnly(boolean readonly) {tb.setReadOnly(readonly);}
 
 
         public void onChange(Widget sender) {// FIXME: DateTimeFormat? locale?
-            date.setTime(Date.parse(((DateView)sender).getText()));
+                                             // FIXME: format exception!!!
+            date.setTime(Date.parse(((TextBox)sender).getText()));
         }
 
         static Date today(long time) { // FIXME: too many Date instances?
@@ -230,9 +233,9 @@ public class Fitness implements EntryPoint {
             String showFor = lb.getItemText(lb.getSelectedIndex());
             fromDate.setReadOnly(true);
             thruDate.setReadOnly(true);
-            thruDate.setDate(DateView.today());
+            thruDate.setDate();
             if      (showFor.equals(c.today())) {
-                fromDate.setDate(DateView.today());
+                fromDate.setDate();
             }
             else if (showFor.equals(c.yesterday())) {
                 fromDate.setDate(DateView.yesterday());
@@ -255,7 +258,7 @@ public class Fitness implements EntryPoint {
         }
 
         void update() {
-            Model.Totals.update(fromDate.getText(), thruDate.getText());
+            Model.Totals.update(fromDate.getDate(), thruDate.getDate());
             tg.setText(0, 1, Model.Totals.caloriesIn);
             tg.setText(1, 1, Model.Totals.pACalories);
             tg.setText(2, 1, Model.Totals.metabolism);
@@ -342,7 +345,7 @@ public class Fitness implements EntryPoint {
 
     static abstract class Record extends Dialog {
         protected final Grid g = new Grid(2, 2);
-        protected final TextBox date = new TextBox();
+        protected final DateView date = new DateView();
         protected DB db;
         protected Model.DB mdb;
         protected int row = -1;
@@ -370,13 +373,13 @@ public class Fitness implements EntryPoint {
 
         void dismiss() {
             row = -1;
-            date.setText("");
+            date.setDate();
             super.dismiss();
         }
 
         void init(int row) {
             this.row = row;
-            date.setText(((Model.Record)mdb.get(row)).dateStr);
+            date.setDate(((Model.Record)mdb.get(row)).date);
         }
     }
 
@@ -409,7 +412,7 @@ public class Fitness implements EntryPoint {
         void accept() {
             try {
                 Model.CalRec mcr = 
-                    new Model.CalRec(date.getText(), desc.getText(), 
+                    new Model.CalRec(date.getDate(), desc.getText(), 
                                      Double.parseDouble(quantity.getText()),
                                      Double.parseDouble(calPerUnit.getText()));
                 apply(mcr);
@@ -451,7 +454,7 @@ public class Fitness implements EntryPoint {
         void accept() {
             try {
                 Model.WeightRec mwr = 
-                    new Model.WeightRec(date.getText(), 
+                    new Model.WeightRec(date.getDate(), 
                                         Double.parseDouble(weight.getText()));
                 apply(mwr);
             }
@@ -539,7 +542,7 @@ public class Fitness implements EntryPoint {
             static String daysInRange;
             static String calsLeftToEat;
 
-            static void update(String fromDate, String thruDate) {
+            static void update(Date fromDate, Date thruDate) {
                 caloriesIn = "1604.0";
                 pACalories = "150.0";
                 metabolism = "2032.8";
@@ -571,13 +574,10 @@ public class Fitness implements EntryPoint {
         // Records
         static abstract class Record {
             final Date date;
-            final String dateStr;
             final String dateViewStr;
 
-            Record(String dateStr) {
-                this.dateStr = dateStr;
-                this.date = new Date(dateStr); // FIXME: use DateTimeFormat
-                                               // FIXME: catch IllegalArgument 
+            Record(Date date) {
+                this.date = date;
                 this.dateViewStr = // FIXME: use DateTimeFormat
                     "" + (date.getMonth() + 1) + "/" + date.getDate();
             }
@@ -594,9 +594,8 @@ public class Fitness implements EntryPoint {
             final String calPerUnit;
             final String calories;
 
-            CalRec(String dateStr, 
-                   String desc, double quantity, double calPerUnit) {
-                super(dateStr);
+            CalRec(Date date, String desc, double quantity, double calPerUnit) {
+                super(date);
                 this.desc = desc;
                 this.quantity = "" + quantity;
                 this.calPerUnit = "" + calPerUnit;
@@ -614,8 +613,8 @@ public class Fitness implements EntryPoint {
         static class WeightRec extends Record {
             final String weight;
 
-            WeightRec(String dateStr, double weight) {
-                super(dateStr);
+            WeightRec(Date date, double weight) {
+                super(date);
                 this.weight = "" + weight;
             }
 
@@ -650,27 +649,18 @@ public class Fitness implements EntryPoint {
         final static DB weight = new DB();
 
         static {
-            food.add(new CalRec("5/7/04", "pasta", 14.0, 20.0));
+            food.add(new CalRec(new Date("5/7/04"), "pasta", 14.0, 20.0));
 
-            pA.add(new CalRec("5/7/04", "walking", 0.5, 300.0));
+            pA.add(new CalRec(new Date("5/7/04"), "walking", 0.5, 300.0));
 
-            weight.add(new WeightRec("1/1/04", 90.0));
-            weight.add(new WeightRec("4/2/04", 87.0));
-            weight.add(new WeightRec("5/7/04", 84.0));
-            weight.add(new WeightRec("4/2/04", 87.1));
-            weight.add(new WeightRec("4/2/04", 87.2));
+            for (int i = 0; i < 3; i++) {
+                weight.add(new WeightRec(new Date("1/1/04"), 90.0));
+                weight.add(new WeightRec(new Date("4/2/04"), 87.0));
+                weight.add(new WeightRec(new Date("5/7/04"), 84.0));
+                weight.add(new WeightRec(new Date("4/2/04"), 87.1));
+                weight.add(new WeightRec(new Date("4/2/04"), 87.2));
+            }
 
-            weight.add(new WeightRec("1/1/04", 90.0));
-            weight.add(new WeightRec("4/2/04", 87.0));
-            weight.add(new WeightRec("5/7/04", 84.0));
-            weight.add(new WeightRec("4/2/04", 87.1));
-            weight.add(new WeightRec("4/2/04", 87.2));
-
-            weight.add(new WeightRec("1/1/04", 90.0));
-            weight.add(new WeightRec("4/2/04", 87.0));
-            weight.add(new WeightRec("5/7/04", 84.0));
-            weight.add(new WeightRec("4/2/04", 87.1));
-            weight.add(new WeightRec("4/2/04", 87.2));
         }
 
     }
