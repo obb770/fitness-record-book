@@ -26,6 +26,7 @@ import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
 
 import com.google.gwt.user.client.ui.Widget;
+import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.TabPanel;
 import com.google.gwt.user.client.ui.SourcesTabEvents;
 import com.google.gwt.user.client.ui.VerticalPanel;
@@ -35,6 +36,7 @@ import com.google.gwt.user.client.ui.Grid;
 import com.google.gwt.user.client.ui.TableListener;
 import com.google.gwt.user.client.ui.SourcesTableEvents;
 import com.google.gwt.user.client.ui.ListBox;
+import com.google.gwt.user.client.ui.ChangeListener;
 import com.google.gwt.user.client.ui.TextBox;
 import com.google.gwt.user.client.ui.FlowPanel;
 import com.google.gwt.user.client.ui.RadioButton;
@@ -92,11 +94,15 @@ public class Fitness implements EntryPoint {
             setCellHorizontalAlignment(buttons, ALIGN_CENTER);
         }
 
-        void setContent(Widget w) {
-            ScrollPanel sp = new ScrollPanel(w);
-            sp.setHeight("15em"); //FIXME: should this be in the style sheet?
-            add(sp, CENTER);
+        void setContent(Widget w, boolean fixed) {
+            if (fixed) {
+                w = new ScrollPanel(w);
+                w.setHeight("15em"); //FIXME: should this be in the style sheet?
+            }
+            add(w, CENTER);
         }
+
+        void setContent(Widget w) {setContent(w, true);}
 
         void addButton(String name, ClickListener cl) {
             Button b = new Button(name);
@@ -107,28 +113,91 @@ public class Fitness implements EntryPoint {
         void update() {}
     }
 
-    static class Totals extends Page {
+    static class DateView extends Composite implements ChangeListener {
+        final TextBox tb = new TextBox();
+        Date date;
+
+        DateView() {
+            tb.setVisibleLength(8);
+            tb.addChangeListener(this);
+            setDate(today());
+            initWidget(tb);
+        }
+
+        String getText() {return tb.getText();}
+
+        void setDate(Date date) { // FIXME: DateTimeFormat? locale?
+            this.date = date;
+            int year = date.getYear();
+            if (year >= 100) {
+                year -= 100;
+            }
+            if (date.getTime() > 0) {
+                tb.setText((date.getMonth() + 1) + "/" +
+                            date.getDate() + "/" + 
+                            (year <= 9 ? "0" : "") + year);
+            }
+            else {
+                tb.setText("");
+            }
+        }
+
+        void setReadOnly(boolean readonly) {tb.setReadOnly(readonly);}
+
+
+        public void onChange(Widget sender) {// FIXME: DateTimeFormat? locale?
+            date.setTime(Date.parse(((DateView)sender).getText()));
+        }
+
+        static Date today(long time) { // FIXME: too many Date instances?
+            Date today = new Date(time < 0 ? System.currentTimeMillis() : time);
+            return new Date(today.getYear(), today.getMonth(), today.getDate());
+        }
+
+        static Date today() {
+            return today(-1);
+        }
+
+        // The date n days ago
+        static Date dayBefore(int n) {
+            return today(today().getTime() - n * 24 * 60 * 60 * 1000);
+        }
+
+        static Date yesterday() {
+            return dayBefore(1);
+        }
+
+        static Date thisWeek() {
+            return dayBefore(today().getDay());
+        }
+
+        static Date thisMonth() {
+            return dayBefore(today().getDate() - 1);
+        }
+    }
+
+    static class Totals extends Page implements ChangeListener {
         final Grid tg;
-        final TextBox fromDate = new TextBox();
-        final TextBox thruDate = new TextBox();
+        final DateView fromDate = new DateView();
+        final DateView thruDate = new DateView();
+        final ListBox showFor = new ListBox();
 
         Totals() {
             VerticalPanel vp = new VerticalPanel();
             Grid g = new Grid(1, 2);
             g.setText(0, 0, c.showTotalsFor());
-            ListBox lb = new ListBox();
-            lb.addItem(c.today());
-            lb.addItem(c.yesterday());
-            lb.addItem(c.thisWeek());
-            lb.addItem(c.thisMonth());
-            lb.addItem(c.allData());
-            g.setWidget(0, 1, lb);
+            showFor.addItem(c.today());
+            showFor.addItem(c.yesterday());
+            showFor.addItem(c.thisWeek());
+            showFor.addItem(c.thisMonth());
+            showFor.addItem(c.allData());
+            showFor.addItem(c.range());
+            showFor.addChangeListener(this);
+            g.setWidget(0, 1, showFor);
             g.setWidth("100%");
             vp.add(g);
 
             g = new Grid(1, 3);
-            fromDate.setVisibleLength(8);
-            thruDate.setVisibleLength(8);
             g.setWidget(0, 0, fromDate);
             g.setText(0, 1, c.thru());
             g.setWidget(0, 2, thruDate);
@@ -154,6 +223,35 @@ public class Fitness implements EntryPoint {
                     Fitness.options.show();
                 }
             });
+        }
+
+        public void onChange(Widget sender) {
+            ListBox lb = (ListBox)sender;
+            String showFor = lb.getItemText(lb.getSelectedIndex());
+            fromDate.setReadOnly(true);
+            thruDate.setReadOnly(true);
+            thruDate.setDate(DateView.today());
+            if      (showFor.equals(c.today())) {
+                fromDate.setDate(DateView.today());
+            }
+            else if (showFor.equals(c.yesterday())) {
+                fromDate.setDate(DateView.yesterday());
+                thruDate.setDate(DateView.yesterday());
+            }
+            else if (showFor.equals(c.thisWeek())) {
+                fromDate.setDate(DateView.thisWeek());
+            }
+            else if (showFor.equals(c.thisMonth())) {
+                fromDate.setDate(DateView.thisMonth());
+            }
+            else if (showFor.equals(c.allData())) {
+                fromDate.setDate(DateView.today(0));
+            }
+            else if (showFor.equals(c.range())) {
+                fromDate.setDate(DateView.today(0));
+                fromDate.setReadOnly(false);
+                thruDate.setReadOnly(false);
+            }
         }
 
         void update() {
@@ -211,44 +309,33 @@ public class Fitness implements EntryPoint {
     }
 
     static abstract class Dialog extends DialogBox {
-        final private DockPanel dp;
+        final private Page page = new Page();
 
         Dialog(String title) {
             setText(title);
+            setWidget(page);
             
-            dp = new DockPanel();
-            dp.setSpacing(4);
-
-            FlowPanel p = new FlowPanel();
-            Button b = new Button(c.oK());
-            b.addClickListener(new ClickListener() {
+            page.addButton(c.oK(), new ClickListener() {
                 public void onClick(Widget sender) {
-                    ok();
+                    accept();
                 }
             });
-            p.add(b);
-            b = new Button(c.cancel());
-            b.addClickListener(new ClickListener() {
+            page.addButton(c.cancel(), new ClickListener() {
                 public void onClick(Widget sender) {
                     dismiss();
                 }
             });
-            p.add(b);
-            dp.add(p, DockPanel.SOUTH);
-            dp.setCellHorizontalAlignment(p, DockPanel.ALIGN_CENTER);
-
-            setWidget(dp);
 
             int left = RootPanel.get().getAbsoluteLeft() + 30;
             int top = RootPanel.get().getAbsoluteTop() + 30;
             setPopupPosition(left, top);
         }
 
-        protected void setCenter(Widget center) {
-            dp.add(center, DockPanel.CENTER);
+        protected void setContent(Widget center) {
+            page.setContent(center, false);
         }
 
-        abstract void ok();
+        abstract void accept();
 
         void dismiss() {hide();}
     }
@@ -264,7 +351,7 @@ public class Fitness implements EntryPoint {
             super(title);
             g.setText(0, 0, c.date());
             g.setWidget(0, 1, date);
-            setCenter(g);
+            setContent(g);
         }
 
         void setDB(DB db) {this.db = db;}
@@ -319,7 +406,7 @@ public class Fitness implements EntryPoint {
             g.setWidget(4, 1, calPerUnit);
         }
 
-        void ok() {
+        void accept() {
             try {
                 Model.CalRec mcr = 
                     new Model.CalRec(date.getText(), desc.getText(), 
@@ -361,7 +448,7 @@ public class Fitness implements EntryPoint {
             g.setWidget(1, 1, weight);
         }
 
-        void ok() {
+        void accept() {
             try {
                 Model.WeightRec mwr = 
                     new Model.WeightRec(date.getText(), 
@@ -435,11 +522,11 @@ public class Fitness implements EntryPoint {
             g.setWidth("100%");
             vp.add(g);
 
-            setCenter(vp);
+            setContent(vp);
 
         }
 
-        void ok() {}
+        void accept() {}
     }
 
     static class Model {

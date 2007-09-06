@@ -24,6 +24,7 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     String thisWeek();
     String thisMonth();
     String allData();
+    String range();
     String thru();
     String caloriesIn();
     String pACalories();
