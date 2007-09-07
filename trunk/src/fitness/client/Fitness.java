@@ -38,18 +38,16 @@ import com.google.gwt.user.client.ui.SourcesTableEvents;
 import com.google.gwt.user.client.ui.ListBox;
 import com.google.gwt.user.client.ui.ChangeListener;
 import com.google.gwt.user.client.ui.TextBox;
+import com.google.gwt.user.client.ui.TextArea;
 import com.google.gwt.user.client.ui.FlowPanel;
-import com.google.gwt.user.client.ui.RadioButton;
 import com.google.gwt.user.client.ui.Button;
+import com.google.gwt.user.client.ui.RadioButton;
+import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.ClickListener;
 import com.google.gwt.user.client.ui.DialogBox;
 import com.google.gwt.user.client.ui.RootPanel;
 
 public class Fitness implements EntryPoint {
-
-    static void alert(String message) {
-        System.err.println(message);
-    }
 
     static Constants c = (Constants)GWT.create(Constants.class);
     static TabPanel tp;
@@ -61,9 +59,9 @@ public class Fitness implements EntryPoint {
     
     public void onModuleLoad() {
         totals = new Totals();
-        food = new DB(Model.food, 3, new CalRec(c.editFood(), c.foodUnits())); 
-        pA = new DB(Model.pA, 3, new CalRec(c.editPA(), c.pAUnits())); 
-        weight = new DB(Model.weight, 2, new WeightRec(c.editWeight()));
+        food = new DB(Model.food, new CalRec(c.editFood(), c.foodUnits())); 
+        pA = new DB(Model.pA, new CalRec(c.editPA(), c.pAUnits())); 
+        weight = new DB(Model.weight, new WeightRec(c.editWeight()));
         options = new Options();
 
         tp = new TabPanel() {;
@@ -118,7 +116,7 @@ public class Fitness implements EntryPoint {
         private Date date;
 
         DateView() {
-            tb.setVisibleLength(8);
+            tb.setVisibleLength(10);
             tb.addChangeListener(this);
             setDate();
             initWidget(tb);
@@ -128,14 +126,9 @@ public class Fitness implements EntryPoint {
 
         void setDate(Date date) { // FIXME: DateTimeFormat? locale?
             this.date = date;
-            int year = date.getYear();
-            if (year >= 100) {
-                year -= 100;
-            }
             if (date.getTime() > 0) {
                 tb.setText((date.getMonth() + 1) + "/" +
-                            date.getDate() + "/" + 
-                            (year <= 9 ? "0" : "") + year);
+                            date.getDate() + "/" + (date.getYear() + 1900));
             }
             else {
                 tb.setText("");
@@ -275,18 +268,15 @@ public class Fitness implements EntryPoint {
 
     static class DB extends Page implements TableListener {
         final Model.DB mdb;
-        final int nCol;
         final Record record;
         final Grid g;
 
-        //FIXME: calculate nCol automatically
-        DB(Model.DB mdb, int nCol, Record record) { 
+        DB(Model.DB mdb, Record record) { 
             this.mdb = mdb;
-            this.nCol = nCol;
             this.record = record;
             record.setDB(this);
             record.setModelDB(mdb);
-            g = new Grid(0, nCol);
+            g = new Grid(0, mdb.nCol);
             g.setWidth("100%");
             g.addTableListener(this);
             setContent(g);
@@ -299,20 +289,21 @@ public class Fitness implements EntryPoint {
         }
 
         void update() {
-            int i = 0;
-            for (Iterator it = mdb.range(); it.hasNext(); i++) {
+            int row = 0;
+            for (Iterator it = mdb.range(); it.hasNext(); it.next(), row++);
+            g.resizeRows(row);
+            row = 0;
+            for (Iterator it = mdb.range(); it.hasNext(); row++) {
                 Model.Record r = (Model.Record)it.next();
-                if (g.getRowCount() <= i)
-                    g.resizeRows(i + 1);
-                for (int j = 0; j < nCol; j++) {
-                    g.setText(i, j, r.getField(j));
+                for (int j = 0; j < mdb.nCol; j++) {
+                    g.setText(row, j, r.getField(j));
                 }
             }
         }
 
         public void onCellClicked(SourcesTableEvents sender, 
                                   int row, int cell) {
-            record.init(row);
+            record.init(row + mdb.firstIndex());
             record.show();
         }
     }
@@ -424,10 +415,10 @@ public class Fitness implements EntryPoint {
                 apply(mcr);
             }
             catch (NumberFormatException nfe) {
-                alert(c.badQuantityOrCalPerUnit());
+                log(c.badQuantityOrCalPerUnit());
             }
             catch (IllegalArgumentException iae) {
-                alert(c.badDate());
+                log(c.badDate());
             }
         }
 
@@ -465,10 +456,10 @@ public class Fitness implements EntryPoint {
                 apply(mwr);
             }
             catch (NumberFormatException nfe) {
-                alert(c.badWeight());
+                log(c.badWeight());
             }
             catch (IllegalArgumentException iae) {
-                alert(c.badDate());
+                log(c.badDate());
             }
         }
 
@@ -497,7 +488,7 @@ public class Fitness implements EntryPoint {
             super(c.options());
 
             VerticalPanel vp = new VerticalPanel();
-            Grid g = new Grid(6, 2);
+            Grid g = new Grid(7, 2);
 
             g.setText(0, 0, c.metabolismOpt());
             metabolism = new TextBox();
@@ -541,6 +532,15 @@ public class Fitness implements EntryPoint {
             history.setText("" + Model.Options.history);
             g.setWidget(5, 1, history);
 
+            CheckBox cb = new CheckBox(c.console());
+            cb.addClickListener(new ClickListener() {
+                public void onClick(Widget sender) {
+                    if (((CheckBox)sender).isChecked()) {Console.show();}
+                    else {Console.hide();}
+                }
+            });
+            g.setWidget(6, 1, cb);
+
             g.setWidth("100%");
             vp.add(g);
 
@@ -566,7 +566,7 @@ public class Fitness implements EntryPoint {
                 dismiss();
             }
             catch (NumberFormatException nfe) {
-                alert(c.badWeight()); // FIXME: should be another message
+                log(c.badOption());
             }
         }
     }
@@ -604,9 +604,9 @@ public class Fitness implements EntryPoint {
                 netCalories = "" + (caloriesIn - pACalories - 
                                     Double.parseDouble(metabolism));
                 behavioralWeight = "60.0";
-                daysInRange = "" + (thruDate.getTime() - fromDate.getTime() + 
-                                    12 * 60 * 60 * 1000) / 
-                                   24 / 60 / 60 / 1000 + 1;
+                daysInRange = "" + ((thruDate.getTime() - fromDate.getTime() + 
+                                     12 * 60 * 60 * 1000) / 
+                                    24 / 60 / 60 / 1000 + 1);
                 calsLeftToEat = "416.0";
             }
         }
@@ -696,12 +696,24 @@ public class Fitness implements EntryPoint {
         }
 
         static class DB extends ArrayList implements Comparator {
+            final int nCol;
+            final boolean useRange;
+
+            DB(int nCol, boolean useRange) {
+                this.nCol = nCol;
+                this.useRange = useRange;
+            }
+
+            int search(Object o) {
+                return Collections.binarySearch(this, o, this);
+            }
+
             public int compare(Object o1, Object o2) {
                 return ((Record)o1).date.compareTo(((Record)o2).date);
             }
 
             public boolean add(Object o) {
-                int index = Collections.binarySearch(this, o, this);
+                int index = search(o);
                 int size = size();
                 if (index >= 0) {
                     while (index < size && compare(get(index), o) == 0)
@@ -715,20 +727,30 @@ public class Fitness implements EntryPoint {
             }
 
             Iterator range() {
-                return new Range(this, Totals.fromDate, Totals.thruDate);
+                return useRange ? 
+                    new Range(this, Totals.fromDate, Totals.thruDate) :
+                    iterator();
+            }
+
+            int firstIndex() {
+                return useRange ?
+                    new Range(this, Totals.fromDate, 
+                                    Totals.thruDate).firstIndex() :
+                    0;
             }
 
             static class Range implements Iterator {
                 private DB db;
                 private Record thru;
+                private int firstIndex;
                 private Iterator iter;
-                private Record next = null;
+                private Record next;
 
                 Range(DB db, Date fromDate, Date thruDate) {
                     this.db = db;
                     Record dummy = new Record(fromDate);
                     thru = new Record(thruDate);
-                    int index = Collections.binarySearch(db, dummy, db);
+                    int index = db.search(dummy);
                     if (index >= 0) {
                         while (index > 0 && 
                                db.compare(db.get(index - 1), dummy) == 0)
@@ -738,10 +760,13 @@ public class Fitness implements EntryPoint {
                         index = -index - 1;
 
                     }
+                    firstIndex = index;
                     iter = db.listIterator(index);
-                    if (iter.hasNext())
-                        next = (Record)iter.next();
+                    next = null;
+                    next();
                 }
+
+                int firstIndex() {return firstIndex;}
 
                 public boolean hasNext() {
                     return next != null;
@@ -763,24 +788,79 @@ public class Fitness implements EntryPoint {
             }
         }
 
-        final static DB food = new DB();
-        final static DB pA = new DB();
-        final static DB weight = new DB();
+        final static DB food = new DB(3, true);
+        final static DB pA = new DB(3, true);
+        final static DB weight = new DB(2, false);
 
         static {
-            food.add(new CalRec(new Date("5/7/04"), "pasta", 14.0, 20.0));
+            food.add(new CalRec(new Date("5/7/2004"), "pasta", 14.0, 20.0));
 
-            pA.add(new CalRec(new Date("5/7/04"), "walking", 0.5, 300.0));
+            pA.add(new CalRec(new Date("5/7/2004"), "walking", 0.5, 300.0));
 
             for (int i = 0; i < 3; i++) {
-                weight.add(new WeightRec(new Date("1/1/04"), 90.0));
-                weight.add(new WeightRec(new Date("4/2/04"), 87.0));
-                weight.add(new WeightRec(new Date("5/7/04"), 84.0));
-                weight.add(new WeightRec(new Date("4/2/04"), 87.1));
-                weight.add(new WeightRec(new Date("4/2/04"), 87.2));
+                weight.add(new WeightRec(new Date("1/1/2004"), 90.0));
+                weight.add(new WeightRec(new Date("4/2/2004"), 87.0));
+                weight.add(new WeightRec(new Date("5/7/2004"), 84.0));
+                weight.add(new WeightRec(new Date("4/2/2004"), 87.1));
+                weight.add(new WeightRec(new Date("4/2/2004"), 87.2));
             }
 
         }
 
     }
+
+    static void log(String message) {
+        System.err.println(message);
+        Console.println(message);
+    }
+
+
+    static class Console {
+        static boolean initialized = false;
+        static DialogBox d;
+        static TextArea ta;
+        static StringBuffer sb;
+
+        static void init() {
+            if (initialized)
+                return;
+            initialized = true;
+            d = new DialogBox(false, false);
+            ta = new TextArea();
+            ta.setCharacterWidth(80);
+            ta.setVisibleLines(24);
+            ta.setReadOnly(true);
+            d.setText(c.console());
+            d.setWidget(ta);
+            int left = RootPanel.get().getAbsoluteLeft();
+            int bottom = 350;
+            d.setPopupPosition(left, bottom);
+            sb = new StringBuffer();
+        }
+
+        static void println(String message) {
+            if (!initialized)
+                return;
+            sb.append(message);
+            sb.append("\n");
+            ta.setText(sb.toString());
+            ta.setCursorPos(sb.length());
+        }
+
+        static void show() {
+            init(); 
+            d.show();
+        }
+
+        static void hide() {
+            if (d != null)
+                d.hide();
+            initialized = false;
+            d = null; 
+            ta = null; 
+            sb = null;
+        }
+    }
+
 }
+
