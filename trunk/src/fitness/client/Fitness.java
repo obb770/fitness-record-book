@@ -83,6 +83,12 @@ public class Fitness implements EntryPoint {
         RootPanel.get().add(tp);
     }
 
+    static String d2s(double d) {
+        long l = (long)(d * 100 + 0.5);
+        d = l / 100.0;
+        return String.valueOf(d);
+    }
+
     static class Page extends DockPanel {
         FlowPanel buttons = new FlowPanel();
 
@@ -433,9 +439,9 @@ public class Fitness implements EntryPoint {
             super.init(row);
             Model.CalRec mcr = (Model.CalRec)mdb.get(row);
             desc.setText(mcr.desc);
-            quantity.setText("" + mcr.quantity);
+            quantity.setText(mcr.quantity);
             //FIXME: set unit (need to save it first in the model)
-            calPerUnit.setText("" + mcr.calPerUnit);
+            calPerUnit.setText(mcr.calPerUnit);
         }
     }
 
@@ -470,7 +476,7 @@ public class Fitness implements EntryPoint {
 
         void init(int row) {
             super.init(row);
-            weight.setText(((Model.WeightRec)mdb.get(row)).weight);
+            weight.setText(((Model.WeightRec)mdb.get(row)).weightStr);
         }
     }
 
@@ -492,7 +498,7 @@ public class Fitness implements EntryPoint {
 
             g.setText(0, 0, c.metabolismOpt());
             metabolism = new TextBox();
-            metabolism.setText("" + Model.Options.metabolism);
+            metabolism.setText(d2s(Model.Options.metabolism));
             g.setWidget(0, 1, metabolism);
 
             g.setText(1, 0, c.goal());
@@ -509,12 +515,12 @@ public class Fitness implements EntryPoint {
 
             g.setText(2, 0, c.goalWeight());
             goalWeight = new TextBox();
-            goalWeight.setText("" + Model.Options.goalWeight);
+            goalWeight.setText(d2s(Model.Options.goalWeight));
             g.setWidget(2, 1, goalWeight);
 
             g.setText(3, 0, c.goalDeficit());
             goalDeficit = new TextBox();
-            goalDeficit.setText("" + Model.Options.goalDeficit);
+            goalDeficit.setText(d2s(Model.Options.goalDeficit));
             g.setWidget(3, 1, goalDeficit);
 
             g.setText(4, 0, c.weightOpt());
@@ -529,7 +535,7 @@ public class Fitness implements EntryPoint {
 
             g.setText(5, 0, c.historyDays());
             history = new TextBox();
-            history.setText("" + Model.Options.history);
+            history.setText(String.valueOf(Model.Options.history));
             g.setWidget(5, 1, history);
 
             CheckBox cb = new CheckBox(c.console());
@@ -563,6 +569,7 @@ public class Fitness implements EntryPoint {
                     Double.parseDouble(goalDeficit.getText()),
                     weightIsPounds.isChecked(), weightIsKilograms.isChecked(),
                     Integer.parseInt(history.getText()));
+                totals.update();
                 dismiss();
             }
             catch (NumberFormatException nfe) {
@@ -572,6 +579,8 @@ public class Fitness implements EntryPoint {
     }
 
     static class Model {
+        final static double POUNDS_PER_KILO = 2.2046;
+
         static class Totals {
             static Date fromDate;
             static Date thruDate;
@@ -593,29 +602,44 @@ public class Fitness implements EntryPoint {
                     CalRec cr = (CalRec)it.next();
                     caloriesIn += cr.calories;
                 }
-                Totals.caloriesIn = "" + caloriesIn;
+                Totals.caloriesIn = d2s(caloriesIn);
                 double pACalories = 0.0;
                 for (Iterator it = pA.range(); it.hasNext();) {
                     CalRec cr = (CalRec)it.next();
                     pACalories += cr.calories;
                 }
-                Totals.pACalories = "" + pACalories;
-                metabolism = "2032.8";
-                netCalories = "" + (caloriesIn - pACalories - 
-                                    Double.parseDouble(metabolism));
-                behavioralWeight = "60.0";
-                daysInRange = "" + ((thruDate.getTime() - fromDate.getTime() + 
-                                     12 * 60 * 60 * 1000) / 
-                                    24 / 60 / 60 / 1000 + 1);
-                calsLeftToEat = "416.0";
+                Totals.pACalories = d2s(pACalories);
+                long daysInRange = (thruDate.getTime() - fromDate.getTime() + 
+                               12 * 60 * 60 * 1000) / 24 / 60 / 60 / 1000 + 1;
+                Totals.daysInRange = String.valueOf(daysInRange);
+                double metabolism = daysInRange * 
+                    ((WeightRec)weight.last()).weight * Options.metabolism;
+                Totals.metabolism = d2s(metabolism);
+                netCalories = d2s(caloriesIn - pACalories - metabolism);
+                double behavioralWeight = (caloriesIn - pACalories) / 
+                    Options.metabolism / daysInRange;
+                if (Options.weightIsKilograms)
+                    behavioralWeight /= POUNDS_PER_KILO;
+                Totals.behavioralWeight = d2s(behavioralWeight);
+                if (Options.goalIsWeight) {
+                    double calsLeftToEat = 
+                        Options.goalWeight * Options.metabolism;
+                    if (Options.weightIsKilograms)
+                        calsLeftToEat *= POUNDS_PER_KILO;
+                    calsLeftToEat += (pACalories - caloriesIn) / daysInRange;
+                    Totals.calsLeftToEat = d2s(calsLeftToEat);
+                }
+                else {
+                    Totals.calsLeftToEat = "N/A"; // FIXME: implement
+                }
             }
         }
 
         static class Options {
-            static double metabolism = 11.0;
+            static double metabolism = 10.0;
             static boolean goalIsWeight = true;
             static boolean goalIsDeficit = false;
-            static double goalWeight = 170.0;
+            static double goalWeight = 0.0;
             static double goalDeficit = 0.0;
             static boolean weightIsPounds = false;
             static boolean weightIsKilograms = true;
@@ -648,7 +672,7 @@ public class Fitness implements EntryPoint {
             Record(Date date) {
                 this.date = date;
                 this.dateViewStr = // FIXME: use DateTimeFormat
-                    "" + (date.getMonth() + 1) + "/" + date.getDate();
+                    (date.getMonth() + 1) + "/" + date.getDate();
             }
 
             String getField(int index) {
@@ -667,10 +691,10 @@ public class Fitness implements EntryPoint {
             CalRec(Date date, String desc, double quantity, double calPerUnit) {
                 super(date);
                 this.desc = desc;
-                this.quantity = "" + quantity;
-                this.calPerUnit = "" + calPerUnit;
+                this.quantity = d2s(quantity);
+                this.calPerUnit = d2s(calPerUnit);
                 this.calories = quantity * calPerUnit;
-                this.caloriesStr = "" + calories;
+                this.caloriesStr = d2s(calories);
             }
 
             String getField(int index) {
@@ -682,15 +706,19 @@ public class Fitness implements EntryPoint {
         }
 
         static class WeightRec extends Record {
-            final String weight;
+            final double weight;
+            final String weightStr;
 
             WeightRec(Date date, double weight) {
                 super(date);
-                this.weight = "" + weight;
+                weightStr = d2s(weight);
+                if (Options.weightIsKilograms)
+                    weight *= POUNDS_PER_KILO;
+                this.weight = weight;
             }
 
             String getField(int index) {
-                if (index == 1) {return weight;}
+                if (index == 1) {return weightStr;}
                 return super.getField(index);
             }
         }
@@ -725,6 +753,8 @@ public class Fitness implements EntryPoint {
                 }
                 return true;
             }
+
+            Object last() {return get(size() - 1);}
 
             Iterator range() {
                 return useRange ? 
@@ -792,7 +822,11 @@ public class Fitness implements EntryPoint {
         final static DB pA = new DB(3, true);
         final static DB weight = new DB(2, false);
 
+        // Testing data
         static {
+            Options.metabolism = 11.0;
+            Options.goalWeight = 77.0;
+
             food.add(new CalRec(new Date("5/7/2004"), "pasta", 14.0, 20.0));
 
             pA.add(new CalRec(new Date("5/7/2004"), "walking", 0.5, 300.0));
