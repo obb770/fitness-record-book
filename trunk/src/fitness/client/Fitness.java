@@ -91,17 +91,82 @@ public class Fitness implements EntryPoint {
         return String.valueOf(d);
     }
 
-    static void mark(TextBox tb) {
-        tb.setText("*"+tb.getText()+"*");
+    static class Input extends Composite implements ChangeListener {
+        private final TextBox tb = new TextBox();
+        private final ChangeListener cl;
+
+        protected Input(String text, ChangeListener cl) {
+            tb.setText(text);
+            this.cl = cl;
+            tb.addChangeListener(this);
+            initWidget(tb);
+        }
+
+        protected void setVisibleLength(int len) {
+            tb.setVisibleLength(len);
+        }
+
+        protected String getText() {
+            String t = tb.getText();
+            if (t.startsWith("*") && t.endsWith("*")) {
+                t = t.substring(1, t.length() - 1);
+                tb.setText(t);
+            }
+            return t;
+        }
+
+        protected void setText(String text) {
+            tb.setText(text);
+        }
+
+        protected void mark() {
+            tb.setText("*"+tb.getText()+"*");
+        }
+
+        void setReadOnly(boolean readonly) {
+            tb.setReadOnly(readonly);
+        }
+
+        public void onChange(Widget sender) {
+            if (isValid()) {
+                if (cl != null)
+                    cl.onChange(this);
+                return;
+            }
+            mark();
+        }
+
+        protected boolean isValid() {return true;}
     }
 
-    static String unmark(TextBox tb) {
-        String t = tb.getText();
-        if (t.startsWith("*") && t.endsWith("*")) {
-            t = t.substring(1, t.length() - 1);
-            tb.setText(t);
+    static class DateInput extends Input {
+        static final DateTimeFormat mformat =
+            DateTimeFormat.getMediumDateFormat();
+        private Date date;
+
+        public DateInput(String text, ChangeListener cl) {
+            super(text, cl);
+            setVisibleLength(12);
         }
-        return t;
+
+        protected boolean isValid() {
+            try {
+                date = mformat.parse(getText());
+                return true;
+            }
+            catch (IllegalArgumentException ile) {
+            }
+            return false;
+        }
+
+        Date get() {
+            return date;
+        }
+
+        void set(Date date) {
+            this.date = date;
+            setText(mformat.format(date));
+        }
     }
 
     static class Page extends DockPanel {
@@ -132,61 +197,34 @@ public class Fitness implements EntryPoint {
         void update() {}
     }
 
-    static class DateView extends Composite implements ChangeListener {
+    static class DateView extends Composite {
         final static long DAY_IN_MILLIS = 24L * 60L * 60L * 1000L;
         final static DateTimeFormat sformat = 
             DateTimeFormat.getShortDateFormat();
-        final static DateTimeFormat mformat = 
-            DateTimeFormat.getMediumDateFormat();
-        final TextBox tb = new TextBox();
-        private Date date;
+        private final DateInput di = new DateInput("", null);
 
         DateView() {
-            tb.setVisibleLength(12);
-            tb.addChangeListener(this);
             setDate();
-            initWidget(tb);
+            initWidget(di);
         }
 
-        Date getDate() {return date;}
+        Date getDate() {return di.get();}
 
-        void setDate(Date date) {
-            this.date = date;
-            tb.setText(DateView.medium(date));
-        }
+        void setDate(Date date) {di.set(date);}
 
         void setDate() {setDate(today());}
 
-        void setReadOnly(boolean readonly) {tb.setReadOnly(readonly);}
-
-
-        // FIXME: must update the parent totals page (add callback?) !!!!
-        public void onChange(Widget sender) { 
-                                    // FIXME: catch IllegalArgumentException {
-            TextBox tb = (TextBox)sender;
-            try {
-                date = mformat.parse(unmark(tb));
-            }
-            catch (IllegalArgumentException ile) {
-                log(c.badDate());
-                mark(tb);
-                //setDate(date);
-            }
-        }
+        void setReadOnly(boolean readonly) {di.setReadOnly(readonly);}
 
         static String small(Date date) {
             return sformat.format(date);
-        }
-
-        static String medium(Date date) {
-            return mformat.format(date);
         }
 
         static Date today(long time) { // FIXME: too many Date instances?
             if (time < 0)
                 time = System.currentTimeMillis();
             Date today = new Date(time);
-            return mformat.parse(mformat.format(today));
+            return DateInput.mformat.parse(DateInput.mformat.format(today));
         }
 
         static Date today() {
