@@ -25,6 +25,8 @@ import java.util.Collections;
 import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
 
+import com.google.gwt.i18n.client.DateTimeFormat;
+
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.TabPanel;
@@ -89,6 +91,19 @@ public class Fitness implements EntryPoint {
         return String.valueOf(d);
     }
 
+    static void mark(TextBox tb) {
+        tb.setText("*"+tb.getText()+"*");
+    }
+
+    static String unmark(TextBox tb) {
+        String t = tb.getText();
+        if (t.startsWith("*") && t.endsWith("*")) {
+            t = t.substring(1, t.length() - 1);
+            tb.setText(t);
+        }
+        return t;
+    }
+
     static class Page extends DockPanel {
         FlowPanel buttons = new FlowPanel();
 
@@ -118,11 +133,16 @@ public class Fitness implements EntryPoint {
     }
 
     static class DateView extends Composite implements ChangeListener {
+        final static long DAY_IN_MILLIS = 24L * 60L * 60L * 1000L;
+        final static DateTimeFormat sformat = 
+            DateTimeFormat.getShortDateFormat();
+        final static DateTimeFormat mformat = 
+            DateTimeFormat.getMediumDateFormat();
         final TextBox tb = new TextBox();
         private Date date;
 
         DateView() {
-            tb.setVisibleLength(10);
+            tb.setVisibleLength(12);
             tb.addChangeListener(this);
             setDate();
             initWidget(tb);
@@ -130,15 +150,9 @@ public class Fitness implements EntryPoint {
 
         Date getDate() {return date;}
 
-        void setDate(Date date) { // FIXME: DateTimeFormat? locale?
+        void setDate(Date date) {
             this.date = date;
-            if (date.getTime() > 0) {
-                tb.setText((date.getMonth() + 1) + "/" +
-                            date.getDate() + "/" + (date.getYear() + 1900));
-            }
-            else {
-                tb.setText("");
-            }
+            tb.setText(DateView.medium(date));
         }
 
         void setDate() {setDate(today());}
@@ -147,14 +161,32 @@ public class Fitness implements EntryPoint {
 
 
         // FIXME: must update the parent totals page (add callback?) !!!!
-        public void onChange(Widget sender) {// FIXME: DateTimeFormat? locale?
-                                             // FIXME: format exception!!!
-            date.setTime(Date.parse(((TextBox)sender).getText()));
+        public void onChange(Widget sender) { 
+                                    // FIXME: catch IllegalArgumentException {
+            TextBox tb = (TextBox)sender;
+            try {
+                date = mformat.parse(unmark(tb));
+            }
+            catch (IllegalArgumentException ile) {
+                log(c.badDate());
+                mark(tb);
+                //setDate(date);
+            }
+        }
+
+        static String small(Date date) {
+            return sformat.format(date);
+        }
+
+        static String medium(Date date) {
+            return mformat.format(date);
         }
 
         static Date today(long time) { // FIXME: too many Date instances?
-            Date today = new Date(time < 0 ? System.currentTimeMillis() : time);
-            return new Date(today.getYear(), today.getMonth(), today.getDate());
+            if (time < 0)
+                time = System.currentTimeMillis();
+            Date today = new Date(time);
+            return mformat.parse(mformat.format(today));
         }
 
         static Date today() {
@@ -163,7 +195,7 @@ public class Fitness implements EntryPoint {
 
         // The date n days ago
         static Date dayBefore(int n) {
-            return today(today().getTime() - n * 24 * 60 * 60 * 1000);
+            return today(today().getTime() - n * DAY_IN_MILLIS);
         }
 
         static Date yesterday() {
@@ -235,9 +267,9 @@ public class Fitness implements EntryPoint {
             String showFor = lb.getItemText(lb.getSelectedIndex());
             fromDate.setReadOnly(true);
             thruDate.setReadOnly(true);
-            thruDate.setDate();
             if      (showFor.equals(c.today())) {
                 fromDate.setDate();
+                thruDate.setDate();
             }
             else if (showFor.equals(c.yesterday())) {
                 fromDate.setDate(DateView.yesterday());
@@ -245,15 +277,19 @@ public class Fitness implements EntryPoint {
             }
             else if (showFor.equals(c.thisWeek())) {
                 fromDate.setDate(DateView.thisWeek());
+                thruDate.setDate(DateView.yesterday());
             }
             else if (showFor.equals(c.thisMonth())) {
                 fromDate.setDate(DateView.thisMonth());
+                thruDate.setDate(DateView.yesterday());
             }
             else if (showFor.equals(c.allData())) {
-                fromDate.setDate(DateView.today(0));
+                fromDate.setDate(DateView.today(0L));
+                thruDate.setDate(DateView.today(0x7fffffff * 1000L));
             }
             else if (showFor.equals(c.range())) {
-                fromDate.setDate(DateView.today(0));
+                fromDate.setDate(DateView.today());
+                thruDate.setDate(DateView.today());
                 fromDate.setReadOnly(false);
                 thruDate.setReadOnly(false);
             }
@@ -610,7 +646,7 @@ public class Fitness implements EntryPoint {
                 }
                 Totals.pACalories = d2s(pACalories);
                 long daysInRange = (thruDate.getTime() - fromDate.getTime() + 
-                               12 * 60 * 60 * 1000) / 24 / 60 / 60 / 1000 + 1;
+                    DateView.DAY_IN_MILLIS / 2) / DateView.DAY_IN_MILLIS + 1L;
                 Totals.daysInRange = String.valueOf(daysInRange);
                 double metabolism = daysInRange * 
                     ((WeightRec)weight.last()).weight * Options.metabolism;
@@ -671,8 +707,7 @@ public class Fitness implements EntryPoint {
 
             Record(Date date) {
                 this.date = date;
-                this.dateViewStr = // FIXME: use DateTimeFormat
-                    (date.getMonth() + 1) + "/" + date.getDate();
+                this.dateViewStr = DateView.small(date);
             }
 
             String getField(int index) {
@@ -737,7 +772,9 @@ public class Fitness implements EntryPoint {
             }
 
             public int compare(Object o1, Object o2) {
-                return ((Record)o1).date.compareTo(((Record)o2).date);
+                // Unforturnately, time is not rounded to a full second
+                return (int)(((Record)o1).date.getTime() / 1000 -
+                             ((Record)o2).date.getTime() / 1000);
             }
 
             public boolean add(Object o) {
@@ -827,17 +864,14 @@ public class Fitness implements EntryPoint {
             Options.metabolism = 11.0;
             Options.goalWeight = 77.0;
 
-            food.add(new CalRec(new Date("5/7/2004"), "pasta", 14.0, 20.0));
+            food.add(new CalRec(DateView.today(), "pasta", 14.0, 20.0));
 
-            pA.add(new CalRec(new Date("5/7/2004"), "walking", 0.5, 300.0));
+            pA.add(new CalRec(DateView.today(), "walking", 0.5, 300.0));
 
-            for (int i = 0; i < 3; i++) {
-                weight.add(new WeightRec(new Date("1/1/2004"), 90.0));
-                weight.add(new WeightRec(new Date("4/2/2004"), 87.0));
-                weight.add(new WeightRec(new Date("5/7/2004"), 84.0));
-                weight.add(new WeightRec(new Date("4/2/2004"), 87.1));
-                weight.add(new WeightRec(new Date("4/2/2004"), 87.2));
-            }
+            weight.add(new WeightRec(DateView.dayBefore(50), 90.0));
+            weight.add(new WeightRec(DateView.dayBefore(34), 87.0));
+            weight.add(new WeightRec(DateView.dayBefore(12), 84.0));
+            weight.add(new WeightRec(DateView.dayBefore(2), 82.0));
 
         }
 
