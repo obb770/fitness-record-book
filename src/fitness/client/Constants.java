@@ -69,5 +69,7 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     String badDate();
     String badQuantityOrCalPerUnit();
     String badWeight();
+    String badOption();
+    String console();
 
 }
