@@ -644,12 +644,9 @@ public class Fitness implements EntryPoint {
         }
     }
 
-    static class Options extends Dialog implements ClickListener {
+    static class Options extends Dialog {
         DoubleInput metabolism;
-        RadioButton goalIsWeight;
-        RadioButton goalIsDeficit;
         DoubleInput goalWeight;
-        DoubleInput goalDeficit;
         RadioButton weightIsPounds;
         RadioButton weightIsKilograms;
         IntegerInput history;
@@ -658,46 +655,30 @@ public class Fitness implements EntryPoint {
             super(c.options());
 
             VerticalPanel vp = new VerticalPanel();
-            Grid g = new Grid(7, 2);
+            Grid g = new Grid(5, 2);
 
             g.setText(0, 0, c.metabolismOpt());
             metabolism = new DoubleInput(d2s(Model.Options.metabolism), null);
             g.setWidget(0, 1, metabolism);
 
-            g.setText(1, 0, c.goal());
-            FlowPanel p = new FlowPanel();
-            goalIsWeight = new RadioButton(c.goal(), c.weightOptVal());
-            goalIsWeight.addClickListener(this);
-            p.add(goalIsWeight);
-            goalIsWeight.setChecked(Model.Options.goalIsWeight);
-            goalIsDeficit = new RadioButton(c.goal(), c.deficit());
-            goalIsDeficit.addClickListener(this);
-            p.add(goalIsDeficit);
-            goalIsDeficit.setChecked(Model.Options.goalIsDeficit);
-            g.setWidget(1, 1, p);
-
-            g.setText(2, 0, c.goalWeight());
+            g.setText(1, 0, c.goalWeight());
             goalWeight = new DoubleInput(d2s(Model.Options.goalWeight), null);
-            g.setWidget(2, 1, goalWeight);
+            g.setWidget(1, 1, goalWeight);
 
-            g.setText(3, 0, c.goalDeficit());
-            goalDeficit = new DoubleInput(d2s(Model.Options.goalDeficit), null);
-            g.setWidget(3, 1, goalDeficit);
-
-            g.setText(4, 0, c.weightOpt());
-            p = new FlowPanel();
+            g.setText(2, 0, c.weightOpt());
+            FlowPanel p = new FlowPanel();
             weightIsPounds = new RadioButton(c.weightOpt(), c.pounds());
             p.add(weightIsPounds);
             weightIsPounds.setChecked(Model.Options.weightIsPounds);
             weightIsKilograms = new RadioButton(c.weightOpt(), c.kilograms());
             p.add(weightIsKilograms);
             weightIsKilograms.setChecked(Model.Options.weightIsKilograms);
-            g.setWidget(4, 1, p);
+            g.setWidget(2, 1, p);
 
-            g.setText(5, 0, c.historyDays());
+            g.setText(3, 0, c.historyDays());
             history = 
                 new IntegerInput(String.valueOf(Model.Options.history), null);
-            g.setWidget(5, 1, history);
+            g.setWidget(3, 1, history);
 
             CheckBox cb = new CheckBox(c.console());
             cb.addClickListener(new ClickListener() {
@@ -706,32 +687,22 @@ public class Fitness implements EntryPoint {
                     else {Console.hide();}
                 }
             });
-            g.setWidget(6, 1, cb);
+            g.setWidget(4, 1, cb);
 
             g.setWidth("100%");
             vp.add(g);
 
             setContent(vp);
-
-            onClick(null);
-        }
-
-        public void onClick(Widget sender) {
-            goalWeight.setReadOnly(!goalIsWeight.isChecked());
-            goalDeficit.setReadOnly(!goalIsDeficit.isChecked());
         }
 
         void accept() {
             if (!metabolism.isValid() ||
                 !goalWeight.isValid() ||
-                !goalDeficit.isValid() ||
                 !history.isValid())
                 return;
             Model.Options.update(
                     metabolism.get(),
-                    goalIsWeight.isChecked(), goalIsDeficit.isChecked(),
                     goalWeight.get(),
-                    goalDeficit.get(),
                     weightIsPounds.isChecked(), weightIsKilograms.isChecked(),
                     history.get());
             totals.update();
@@ -782,43 +753,29 @@ public class Fitness implements EntryPoint {
                 if (Options.weightIsKilograms)
                     behavioralWeight /= POUNDS_PER_KILO;
                 Totals.behavioralWeight = d2s(behavioralWeight);
-                if (Options.goalIsWeight) {
-                    double calsLeftToEat = 
-                        Options.goalWeight * Options.metabolism;
-                    if (Options.weightIsKilograms)
-                        calsLeftToEat *= POUNDS_PER_KILO;
-                    calsLeftToEat += (pACalories - caloriesIn) / daysInRange;
-                    Totals.calsLeftToEat = d2s(calsLeftToEat);
-                }
-                else {
-                    Totals.calsLeftToEat = "N/A"; // FIXME: implement
-                }
+                double calsLeftToEat = Options.goalWeight * Options.metabolism;
+                if (Options.weightIsKilograms)
+                    calsLeftToEat *= POUNDS_PER_KILO;
+                calsLeftToEat += (pACalories - caloriesIn) / daysInRange;
+                Totals.calsLeftToEat = d2s(calsLeftToEat);
             }
         }
 
         static class Options {
             static double metabolism = 10.0;
-            static boolean goalIsWeight = true;
-            static boolean goalIsDeficit = false;
             static double goalWeight = 0.0;
-            static double goalDeficit = 0.0;
             static boolean weightIsPounds = false;
             static boolean weightIsKilograms = true;
             static int history = 90;
 
             static void update(
                 double metabolism,
-                boolean goalIsWeight, boolean goalIsDeficit,
                 double goalWeight,
-                double goalDeficit,
                 boolean weightIsPounds, boolean weightIsKilograms,
                 int history) {
 
                 Options.metabolism = metabolism;
-                Options.goalIsWeight = goalIsWeight;
-                Options.goalIsDeficit = goalIsDeficit;
                 Options.goalWeight = goalWeight;
-                Options.goalDeficit = goalDeficit;
                 Options.weightIsPounds = weightIsPounds;
                 Options.weightIsKilograms = weightIsKilograms;
                 Options.history = history;

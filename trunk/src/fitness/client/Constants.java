@@ -40,11 +40,7 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     // Options
     String options();
     String metabolismOpt();
-    String goal();
-    String weightOptVal();
-    String deficit();
     String goalWeight();
-    String goalDeficit();
     String weightOpt();
     String pounds();
     String kilograms();
