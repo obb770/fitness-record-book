@@ -59,6 +59,10 @@ public class Fitness implements EntryPoint {
     static DB weight;
     static Options options;
     
+    static {
+        log("Starting...");
+    }
+
     public void onModuleLoad() {
         totals = new Totals();
         food = new DB(Model.food, new CalRec(c.editFood(), c.foodUnits())); 
@@ -94,22 +98,27 @@ public class Fitness implements EntryPoint {
     static class Input extends Composite implements ChangeListener {
         private final TextBox tb = new TextBox();
         private final ChangeListener cl;
+        private boolean isValid = true;
 
         protected Input(String text, ChangeListener cl) {
-            tb.setText(text);
             this.cl = cl;
             tb.addChangeListener(this);
             initWidget(tb);
+            if (text != null)
+                change(text);
         }
 
         protected void setVisibleLength(int len) {
             tb.setVisibleLength(len);
         }
 
-        protected String unmarked() {
+        protected String getText() {
             String t = tb.getText();
-            if (t.startsWith("*") && t.endsWith("*")) {
-                t = t.substring(1, t.length() - 1);
+            if (t.startsWith("*")) {
+                t = t.substring(1, t.length());
+            }
+            if (t.endsWith("*")) {
+                t = t.substring(0, t.length() - 1);
             }
             return t;
         }
@@ -118,29 +127,37 @@ public class Fitness implements EntryPoint {
             tb.setText(text);
         }
 
-        protected void mark() {
-            tb.setText("*"+unmarked()+"*");
+        boolean isValid() {
+            return isValid;
         }
 
-        protected void unmark() {
-            tb.setText(unmarked());
+        void setValid(boolean isValid) {
+            this.isValid = isValid;
+            String t = getText();
+            if (!isValid)
+                t = "*" + t + "*";
+            setText(t);
         }
 
         void setReadOnly(boolean readonly) {
             tb.setReadOnly(readonly);
         }
 
+        void change(String text) {
+            setText(text);
+            onChange(tb);
+        }
+
         public void onChange(Widget sender) {
-            if (isValid()) {
-                unmark();
+            setValid(validate());
+            if (isValid) {
                 if (cl != null && sender != null)
                     cl.onChange(this);
                 return;
             }
-            mark();
         }
 
-        protected boolean isValid() {return true;}
+        protected boolean validate() {return true;}
     }
 
     static class DateInput extends Input {
@@ -153,12 +170,13 @@ public class Fitness implements EntryPoint {
             setVisibleLength(12);
         }
 
-        protected boolean isValid() {
+        protected boolean validate() {
             try {
-                date = mformat.parse(unmarked());
+                date = mformat.parse(getText());
                 return true;
             }
             catch (IllegalArgumentException ile) {
+                log(c.badDate()+": '"+getText()+"'");
             }
             return false;
         }
@@ -178,14 +196,17 @@ public class Fitness implements EntryPoint {
 
         public DoubleInput(String text, ChangeListener cl) {
             super(text, cl);
+            if (text == null)
+                set(0);
         }
 
-        protected boolean isValid() {
+        protected boolean validate() {
             try {
-                d = Double.parseDouble(unmarked());
+                d = Double.parseDouble(getText());
                 return true;
             }
             catch (NumberFormatException nfe) {
+                log(c.badDouble()+": '"+getText()+"'");
             }
             return false;
         }
@@ -194,8 +215,9 @@ public class Fitness implements EntryPoint {
             return d;
         }
 
-        void set(String text) {
-            setText(text);
+        void set(double d) {
+            this.d = d;
+            setText(d2s(d));
         }
     }
 
@@ -204,14 +226,17 @@ public class Fitness implements EntryPoint {
 
         public IntegerInput(String text, ChangeListener cl) {
             super(text, cl);
+            if (text == null)
+                set(0);
         }
 
-        protected boolean isValid() {
+        protected boolean validate() {
             try {
-                i = Integer.parseInt(unmarked());
+                i = Integer.parseInt(getText());
                 return true;
             }
             catch (NumberFormatException nfe) {
+                log(c.badInteger()+": '"+getText()+"'");
             }
             return false;
         }
@@ -220,8 +245,9 @@ public class Fitness implements EntryPoint {
             return i;
         }
 
-        void set(String text) {
-            setText(text);
+        void set(int i) {
+            this.i = i;
+            setText(String.valueOf(i));
         }
     }
 
@@ -257,12 +283,15 @@ public class Fitness implements EntryPoint {
         final static long DAY_IN_MILLIS = 24L * 60L * 60L * 1000L;
         final static DateTimeFormat sformat = 
             DateTimeFormat.getShortDateFormat();
-        private final DateInput di = new DateInput("", null);
+        private final DateInput di;
 
         DateView() {
+            di = new DateInput(null, null);
             setDate();
             initWidget(di);
         }
+
+        boolean isValid() {return di.isValid();}
 
         Date getDate() {return di.get();}
 
@@ -518,9 +547,9 @@ public class Fitness implements EntryPoint {
 
     static class CalRec extends Record {
         private final TextBox desc = new TextBox();
-        private final DoubleInput quantity = new DoubleInput("", null);
+        private final DoubleInput quantity = new DoubleInput(null, null);
         private final ListBox unit = new ListBox();
-        private final DoubleInput calPerUnit = new DoubleInput("", null);
+        private final DoubleInput calPerUnit = new DoubleInput(null, null);
 
         CalRec(String title, String[] units) {
             super(title);
@@ -543,6 +572,8 @@ public class Fitness implements EntryPoint {
         }
 
         void accept() {
+            if (!date.isValid() || !quantity.isValid() || !calPerUnit.isValid())
+                return;
             Model.CalRec mcr = 
                 new Model.CalRec(date.getDate(), desc.getText(), 
                                  quantity.get(), calPerUnit.get());
@@ -551,8 +582,9 @@ public class Fitness implements EntryPoint {
 
         void dismiss() {
             desc.setText("");
-            quantity.set("");
-            calPerUnit.set("");
+            quantity.set(0);
+            // FIXME: reset unit
+            calPerUnit.set(0);
             super.dismiss();
         }
 
@@ -560,14 +592,14 @@ public class Fitness implements EntryPoint {
             super.init(row);
             Model.CalRec mcr = (Model.CalRec)mdb.get(row);
             desc.setText(mcr.desc);
-            quantity.set(mcr.quantity);
+            quantity.change(mcr.quantity);
             //FIXME: set unit (need to save it first in the model)
-            calPerUnit.set(mcr.calPerUnit);
+            calPerUnit.change(mcr.calPerUnit);
         }
     }
 
     static class WeightRec extends Record {
-        private final DoubleInput weight = new DoubleInput("", null);
+        private final DoubleInput weight = new DoubleInput(null, null);
 
         WeightRec(String title) {
             super(title);
@@ -576,19 +608,21 @@ public class Fitness implements EntryPoint {
         }
 
         void accept() {
+            if (!date.isValid() || !weight.isValid())
+                return;
             Model.WeightRec mwr = 
                 new Model.WeightRec(date.getDate(), weight.get());
             apply(mwr);
         }
 
         void dismiss() {
-            weight.set("");
+            weight.set(0);
             super.dismiss();
         }
 
         void init(int row) {
             super.init(row);
-            weight.set(((Model.WeightRec)mdb.get(row)).weightStr);
+            weight.change(((Model.WeightRec)mdb.get(row)).weightStr);
         }
     }
 
