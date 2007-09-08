@@ -19,6 +19,7 @@ package fitness.client;
 import java.util.Date;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.ListIterator;
 import java.util.Comparator;
 import java.util.Collections;
 
@@ -450,7 +451,7 @@ public class Fitness implements EntryPoint {
         final Model.DB mdb;
         final Record record;
         final Grid g;
-        int offset;
+        int count;
 
         DB(Model.DB mdb, Record record) { 
             this.mdb = mdb;
@@ -470,13 +471,12 @@ public class Fitness implements EntryPoint {
         }
 
         void update() {
+            count = mdb.size();
+            g.resizeRows(count);
+            ListIterator it = mdb.listIterator(count);
             int row = 0;
-            g.resizeRows(0);
-            Model.DB.Range it = (Model.DB.Range)mdb.iterator();
-            offset = it.firstIndex();
-            while (it.hasNext()) {
-                g.resizeRows(row + 1);
-                Model.Record rec = (Model.Record)it.next();
+            while (it.hasPrevious()) {
+                Model.Record rec = (Model.Record)it.previous();
                 for (int col = 0; col < mdb.nCol; col++) {
                     g.setText(row, col, rec.getField(col));
                 }
@@ -486,7 +486,7 @@ public class Fitness implements EntryPoint {
 
         public void onCellClicked(SourcesTableEvents sender, 
                                   int row, int cell) {
-            record.init(row + offset);
+            record.init(count - 1 - row);
             record.show();
         }
     }
@@ -759,12 +759,12 @@ public class Fitness implements EntryPoint {
                 Totals.thruDate = thruDate;
 
                 double caloriesIn = 0.0;
-                for (Iterator it = food.iterator(); it.hasNext();) {
+                for (Iterator it = food.range(); it.hasNext();) {
                     CalRec cr = (CalRec)it.next();
                     caloriesIn += cr.calories;
                 }
                 double pACalories = 0.0;
-                for (Iterator it = pA.iterator(); it.hasNext();) {
+                for (Iterator it = pA.range(); it.hasNext();) {
                     CalRec cr = (CalRec)it.next();
                     pACalories += cr.calories;
                 }
@@ -888,11 +888,9 @@ public class Fitness implements EntryPoint {
         static class DB implements Comparator {
             private final ArrayList al = new ArrayList();
             final int nCol;
-            final boolean useRange;
 
-            DB(int nCol, boolean useRange) {
+            DB(int nCol) {
                 this.nCol = nCol;
-                this.useRange = useRange;
             }
 
             int size() {return al.size();}
@@ -937,6 +935,10 @@ public class Fitness implements EntryPoint {
 
             Object last() {return get(size() - 1);}
 
+            ListIterator listIterator(int index) {
+                return al.listIterator(index);
+            }
+
             void truncate() {
                 Date firstDate = DateView.dayBefore(Options.history - 1);
                 Iterator it = al.iterator();
@@ -948,12 +950,10 @@ public class Fitness implements EntryPoint {
                 }
             }
 
-            Iterator iterator() {
-                if (useRange)
+            Iterator range() {
+                if (this != weight)
                     truncate();
-                return new Range(this, 
-                                 useRange ? Totals.fromDate : null, 
-                                 useRange ? Totals.thruDate : null);
+                return new Range(this, Totals.fromDate, Totals.thruDate);
             }
 
             static class Range implements Iterator {
@@ -1012,9 +1012,10 @@ public class Fitness implements EntryPoint {
             }
         }
 
-        final static DB food = new DB(3, true);
-        final static DB pA = new DB(3, true);
-        final static DB weight = new DB(2, false);
+
+        final static DB food = new DB(3);
+        final static DB pA = new DB(3);
+        final static DB weight = new DB(2);
 
         // Testing data
         static {
