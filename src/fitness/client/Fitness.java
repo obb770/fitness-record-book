@@ -285,10 +285,14 @@ public class Fitness implements EntryPoint {
             DateTimeFormat.getShortDateFormat();
         private final DateInput di;
 
-        DateView() {
-            di = new DateInput(null, null);
+        DateView(ChangeListener cl) {
+            di = new DateInput(null, cl);
             setDate();
             initWidget(di);
+        }
+
+        DateView() {
+            this(null);
         }
 
         boolean isValid() {return di.isValid();}
@@ -336,8 +340,11 @@ public class Fitness implements EntryPoint {
 
     static class Totals extends Page implements ChangeListener {
         final Grid tg;
-        final DateView fromDate = new DateView();
-        final DateView thruDate = new DateView();
+        final ChangeListener dateCL = new ChangeListener() {
+            public void onChange(Widget sender) {update();}
+        };
+        final DateView fromDate = new DateView(dateCL);
+        final DateView thruDate = new DateView(dateCL);
         final ListBox showFor = new ListBox();
 
         Totals() {
@@ -407,12 +414,20 @@ public class Fitness implements EntryPoint {
                 thruDate.setDate(DateView.yesterday());
             }
             else if (showFor.equals(c.allData())) {
-                fromDate.setDate(DateView.today(0L));
-                thruDate.setDate(DateView.today(0x7fffffff * 1000L));
+                Date from = ((Model.Record)Model.food.first()).date;
+                if (Model.pA.compare(
+                        ((Model.Record)Model.pA.first()).date, from) < 0) {
+                    from = ((Model.Record)Model.pA.first()).date;
+                }
+                Date thru = ((Model.Record)Model.food.last()).date;
+                if (Model.pA.compare(
+                        thru, ((Model.Record)Model.pA.last()).date) < 0) {
+                    thru = ((Model.Record)Model.pA.last()).date;
+                }
+                fromDate.setDate(from);
+                thruDate.setDate(thru);
             }
             else if (showFor.equals(c.range())) {
-                fromDate.setDate(DateView.today());
-                thruDate.setDate(DateView.today());
                 fromDate.setReadOnly(false);
                 thruDate.setReadOnly(false);
             }
@@ -435,6 +450,7 @@ public class Fitness implements EntryPoint {
         final Model.DB mdb;
         final Record record;
         final Grid g;
+        int offset;
 
         DB(Model.DB mdb, Record record) { 
             this.mdb = mdb;
@@ -455,20 +471,22 @@ public class Fitness implements EntryPoint {
 
         void update() {
             int row = 0;
-            for (Iterator it = mdb.range(); it.hasNext(); it.next(), row++);
-            g.resizeRows(row);
-            row = 0;
-            for (Iterator it = mdb.range(); it.hasNext(); row++) {
-                Model.Record r = (Model.Record)it.next();
-                for (int j = 0; j < mdb.nCol; j++) {
-                    g.setText(row, j, r.getField(j));
+            g.resizeRows(0);
+            Model.DB.Range it = (Model.DB.Range)mdb.iterator();
+            offset = it.firstIndex();
+            while (it.hasNext()) {
+                g.resizeRows(row + 1);
+                Model.Record rec = (Model.Record)it.next();
+                for (int col = 0; col < mdb.nCol; col++) {
+                    g.setText(row, col, rec.getField(col));
                 }
+                row++;
             }
         }
 
         public void onCellClicked(SourcesTableEvents sender, 
                                   int row, int cell) {
-            record.init(row + mdb.firstIndex());
+            record.init(row + offset);
             record.show();
         }
     }
@@ -741,12 +759,12 @@ public class Fitness implements EntryPoint {
                 Totals.thruDate = thruDate;
 
                 double caloriesIn = 0.0;
-                for (Iterator it = food.range(); it.hasNext();) {
+                for (Iterator it = food.iterator(); it.hasNext();) {
                     CalRec cr = (CalRec)it.next();
                     caloriesIn += cr.calories;
                 }
                 double pACalories = 0.0;
-                for (Iterator it = pA.range(); it.hasNext();) {
+                for (Iterator it = pA.iterator(); it.hasNext();) {
                     CalRec cr = (CalRec)it.next();
                     pACalories += cr.calories;
                 }
@@ -755,8 +773,8 @@ public class Fitness implements EntryPoint {
                 Totals.daysInRange = String.valueOf(daysInRange);
                 Totals.caloriesIn = d2s(caloriesIn / daysInRange);
                 Totals.pACalories = d2s(pACalories / daysInRange);
-                double metabolism = 
-                    ((WeightRec)weight.last()).weight * Options.metabolism;
+                double metabolism = Options.metabolism *
+                    (weight.size() > 0 ? ((WeightRec)weight.last()).weight : 0);
                 Totals.metabolism = d2s(metabolism);
                 netCalories = d2s((caloriesIn - pACalories - metabolism));
                 double behavioralWeight = (caloriesIn - pACalories) / 
@@ -804,6 +822,8 @@ public class Fitness implements EntryPoint {
                 Options.weightIsPounds = weightIsPounds;
                 Options.weightIsKilograms = weightIsKilograms;
                 Options.history = history;
+                food.truncate();
+                pA.truncate();
             }
         }
 
@@ -865,7 +885,8 @@ public class Fitness implements EntryPoint {
             }
         }
 
-        static class DB extends ArrayList implements Comparator {
+        static class DB implements Comparator {
+            private final ArrayList al = new ArrayList();
             final int nCol;
             final boolean useRange;
 
@@ -874,14 +895,28 @@ public class Fitness implements EntryPoint {
                 this.useRange = useRange;
             }
 
+            int size() {return al.size();}
+
+            Object get(int index) {return al.get(index);}
+
+            void set(int index, Object o) {al.set(index, o);}
+
+            int search(Date d) {
+                Record r = new Record(d);
+                return search(r);
+            }
+
             int search(Object o) {
-                return Collections.binarySearch(this, o, this);
+                return Collections.binarySearch(al, o, this);
+            }
+
+            public int compare(Date d1, Date d2) {
+                // Unforturnately, time is not rounded to a full second
+                return (int)(d1.getTime() / 1000 - d2.getTime() / 1000);
             }
 
             public int compare(Object o1, Object o2) {
-                // Unforturnately, time is not rounded to a full second
-                return (int)(((Record)o1).date.getTime() / 1000 -
-                             ((Record)o2).date.getTime() / 1000);
+                return compare(((Record)o1).date, ((Record)o2).date);
             }
 
             public boolean add(Object o) {
@@ -890,52 +925,63 @@ public class Fitness implements EntryPoint {
                 if (index >= 0) {
                     while (index < size && compare(get(index), o) == 0)
                         index++;
-                    add(index, o);
+                    al.add(index, o);
                 }
                 else {
-                    add(-index - 1, o);
+                    al.add(-index - 1, o);
                 }
                 return true;
             }
 
+            Object first() {return get(0);}
+
             Object last() {return get(size() - 1);}
 
-            Iterator range() {
-                return useRange ? 
-                    new Range(this, Totals.fromDate, Totals.thruDate) :
-                    iterator();
+            void truncate() {
+                Date firstDate = DateView.dayBefore(Options.history - 1);
+                Iterator it = al.iterator();
+                while (it.hasNext()) {
+                    Record r = (Record)it.next();
+                    if (compare(firstDate, r.date) <= 0)
+                        break;
+                    it.remove();
+                }
             }
 
-            int firstIndex() {
-                return useRange ?
-                    new Range(this, Totals.fromDate, 
-                                    Totals.thruDate).firstIndex() :
-                    0;
+            Iterator iterator() {
+                if (useRange)
+                    truncate();
+                return new Range(this, 
+                                 useRange ? Totals.fromDate : null, 
+                                 useRange ? Totals.thruDate : null);
             }
 
             static class Range implements Iterator {
                 private DB db;
-                private Record thru;
+                private Date thruDate;
                 private int firstIndex;
                 private Iterator iter;
                 private Record next;
 
                 Range(DB db, Date fromDate, Date thruDate) {
                     this.db = db;
-                    Record dummy = new Record(fromDate);
-                    thru = new Record(thruDate);
-                    int index = db.search(dummy);
-                    if (index >= 0) {
-                        while (index > 0 && 
-                               db.compare(db.get(index - 1), dummy) == 0)
-                            index--;
-                    }
-                    else {
-                        index = -index - 1;
-
+                    this.thruDate = thruDate;
+                    int index = 0;
+                    if (fromDate != null) {
+                        index = db.search(fromDate);
+                        if (index >= 0) {
+                            while (index > 0 && 
+                                   db.compare(((Record)db.get(index - 1)).date, 
+                                              thruDate) == 0) {
+                                index--;
+                            }
+                        }
+                        else {
+                            index = -index - 1;
+                        }
                     }
                     firstIndex = index;
-                    iter = db.listIterator(index);
+                    iter = db.al.listIterator(index);
                     next = null;
                     next();
                 }
@@ -951,13 +997,17 @@ public class Fitness implements EntryPoint {
                     next = null;
                     if (iter.hasNext()) {
                         next = (Record)iter.next();
-                        if (db.compare(next, thru) > 0)
+                        if (thruDate != null && 
+                            db.compare(next.date, thruDate) > 0) {
                             next = null;
+                        }
                     }
                     return curr;
                 }
 
-                public void remove() {}
+                public void remove() {
+                    throw new UnsupportedOperationException();
+                }
 
             }
         }
@@ -972,6 +1022,8 @@ public class Fitness implements EntryPoint {
             Options.goalWeight = 77.0;
 
             food.add(new CalRec(DateView.today(), "pasta", 14.0, 20.0));
+            food.add(new CalRec(DateView.dayBefore(50), "pasta", 18.0, 20.0));
+            food.add(new CalRec(DateView.dayBefore(95), "pasta", 28.0, 20.0));
 
             pA.add(new CalRec(DateView.today(), "walking", 0.5, 300.0));
 
