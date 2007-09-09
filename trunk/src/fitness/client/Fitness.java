@@ -115,12 +115,6 @@ public class Fitness implements EntryPoint {
 
         protected String getText() {
             String t = tb.getText();
-            if (t.startsWith("*")) {
-                t = t.substring(1, t.length());
-            }
-            if (t.endsWith("*")) {
-                t = t.substring(0, t.length() - 1);
-            }
             return t;
         }
 
@@ -134,10 +128,13 @@ public class Fitness implements EntryPoint {
 
         void setValid(boolean isValid) {
             this.isValid = isValid;
-            String t = getText();
-            if (!isValid)
-                t = "*" + t + "*";
-            setText(t);
+            if (!isValid) {
+                tb.setStyleName("gwt-TextBox-invalid");
+            }
+            else {
+                if (tb.getStyleName().equals("gwt-TextBox-invalid"))
+                    tb.setStyleName("gwt-TextBox");
+            }
         }
 
         void setReadOnly(boolean readonly) {
@@ -151,10 +148,8 @@ public class Fitness implements EntryPoint {
 
         public void onChange(Widget sender) {
             setValid(validate());
-            if (isValid) {
-                if (cl != null && sender != null)
-                    cl.onChange(this);
-                return;
+            if (isValid && cl != null && sender != null) {
+                cl.onChange(this);
             }
         }
 
@@ -173,7 +168,9 @@ public class Fitness implements EntryPoint {
 
         protected boolean validate() {
             try {
-                date = mformat.parse(getText());
+                String t = getText().trim();
+                date = mformat.parse(t);
+                setText(t);
                 return true;
             }
             catch (IllegalArgumentException ile) {
@@ -189,6 +186,7 @@ public class Fitness implements EntryPoint {
         void set(Date date) {
             this.date = date;
             setText(mformat.format(date));
+            setValid(true);
         }
     }
 
@@ -219,6 +217,7 @@ public class Fitness implements EntryPoint {
         void set(double d) {
             this.d = d;
             setText(d2s(d));
+            setValid(true);
         }
     }
 
@@ -249,6 +248,7 @@ public class Fitness implements EntryPoint {
         void set(int i) {
             this.i = i;
             setText(String.valueOf(i));
+            setValid(true);
         }
     }
 
@@ -364,8 +364,6 @@ public class Fitness implements EntryPoint {
             vp.add(g);
 
             g = new Grid(1, 3);
-            fromDate.setReadOnly(true);
-            thruDate.setReadOnly(true);
             g.setWidget(0, 0, fromDate);
             g.setText(0, 1, c.thru());
             g.setWidget(0, 2, thruDate);
@@ -381,7 +379,6 @@ public class Fitness implements EntryPoint {
             tg.setText(5, 0, c.daysInRange());
             tg.setText(6, 0, c.calsLeftToEat());
             tg.setWidth("100%");
-            update();
             vp.add(tg);
 
             setContent(vp);
@@ -391,13 +388,14 @@ public class Fitness implements EntryPoint {
                     Fitness.options.show();
                 }
             });
+
+            onChange(showFor);
         }
 
         public void onChange(Widget sender) {
             ListBox lb = (ListBox)sender;
             String showFor = lb.getItemText(lb.getSelectedIndex());
-            fromDate.setReadOnly(true);
-            thruDate.setReadOnly(true);
+            boolean readonly = true;
             if      (showFor.equals(c.today())) {
                 fromDate.setDate();
                 thruDate.setDate();
@@ -429,9 +427,10 @@ public class Fitness implements EntryPoint {
                 thruDate.setDate(thru);
             }
             else if (showFor.equals(c.range())) {
-                fromDate.setReadOnly(false);
-                thruDate.setReadOnly(false);
+                readonly = false;
             }
+            fromDate.setReadOnly(readonly);
+            thruDate.setReadOnly(readonly);
             update();
         }
 
