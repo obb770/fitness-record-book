@@ -53,7 +53,7 @@ import com.google.gwt.user.client.ui.RootPanel;
 public class Fitness implements EntryPoint {
 
     static Constants c = (Constants)GWT.create(Constants.class);
-    static TabPanel tp;
+    static Main main;
     static Totals totals;
     static DB food;
     static DB pA;
@@ -71,30 +71,37 @@ public class Fitness implements EntryPoint {
         weight = new DB(Model.weight, new WeightRec(c.editWeight()));
         options = new Options();
 
-        tp = new TabPanel() {;
-            {
-                add(Fitness.totals, c.totals());
-                add(Fitness.food, c.food());
-                add(Fitness.pA, c.pA());
-                add(Fitness.weight, c.weight());
-                selectTab(0);
-            }
-
-            public boolean onBeforeTabSelected(SourcesTabEvents sender,
-                                               int tabIndex) {
-                Widget tab = getWidget(tabIndex);
-                ((Page)tab).update();
-                return super.onBeforeTabSelected(sender, tabIndex);
-            }
-        };
-        RootPanel.get().add(tp);
+        main = new Main();
+        RootPanel.get().add(main);
     }
 
-    static String d2s(double d) {
-        long l = (long)(d * 100 + 0.5);
-        d = l / 100.0;
-        return String.valueOf(d);
-    }
+    static class Main extends TabPanel {
+        private int selectedIndex = -1;
+        private boolean isModal = false;
+
+        {
+            add(Fitness.totals, c.totals());
+            add(Fitness.food, c.food());
+            add(Fitness.pA, c.pA());
+            add(Fitness.weight, c.weight());
+            selectTab(0);
+        }
+
+        public boolean onBeforeTabSelected(SourcesTabEvents sender,
+                                           int tabIndex) {
+            if (isModal)
+                return false;
+            selectedIndex = tabIndex;
+            Widget tab = getWidget(tabIndex);
+            ((Page)tab).update();
+            return super.onBeforeTabSelected(sender, tabIndex);
+        }
+
+        void setModal(boolean isModal) {this.isModal = isModal;}
+
+        int getSelectedIndex() {return selectedIndex;}
+
+    };
 
     static class Input extends Composite implements ChangeListener {
         private final TextBox tb = new TextBox();
@@ -190,6 +197,12 @@ public class Fitness implements EntryPoint {
         }
     }
 
+    static String d2s(double d) {
+        long l = (long)(d * 100 + 0.5);
+        d = l / 100.0;
+        return String.valueOf(d);
+    }
+
     static class DoubleInput extends Input {
         private double d;
 
@@ -264,7 +277,8 @@ public class Fitness implements EntryPoint {
         void setContent(Widget w, boolean fixed) {
             if (fixed) {
                 w = new ScrollPanel(w);
-                w.setHeight("15em"); //FIXME: should this be in the style sheet?
+                w.setHeight("16em"); //FIXME: should this be in the style sheet?
+                w.setWidth("20em"); //FIXME: should this be in the style sheet?
             }
             add(w, CENTER);
         }
@@ -490,36 +504,42 @@ public class Fitness implements EntryPoint {
         }
     }
 
-    static abstract class Dialog extends DialogBox {
-        final private Page page = new Page();
+    static abstract class Dialog extends Page {
+        private String title;
+        private int lastPage;
 
         Dialog(String title) {
-            setText(title);
-            setWidget(page);
+            this.title = title;
             
-            page.addButton(c.oK(), new ClickListener() {
+            addButton(c.oK(), new ClickListener() {
                 public void onClick(Widget sender) {
                     accept();
                 }
             });
-            page.addButton(c.cancel(), new ClickListener() {
+            addButton(c.cancel(), new ClickListener() {
                 public void onClick(Widget sender) {
                     dismiss();
                 }
             });
 
-            int left = RootPanel.get().getAbsoluteLeft() + 30;
-            int top = RootPanel.get().getAbsoluteTop() + 30;
-            setPopupPosition(left, top);
-        }
-
-        protected void setContent(Widget center) {
-            page.setContent(center, false);
         }
 
         abstract void accept();
 
         void dismiss() {hide();}
+
+        void show() {
+            lastPage = main.getSelectedIndex();
+            main.insert(this, title, 0);
+            main.selectTab(0);
+            main.setModal(true);
+        }
+
+        void hide() {
+            main.setModal(false);
+            main.remove(this);
+            main.selectTab(lastPage);
+        }
     }
 
     static abstract class Record extends Dialog {
@@ -639,7 +659,7 @@ public class Fitness implements EntryPoint {
 
         void init(int row) {
             super.init(row);
-            weight.change(((Model.WeightRec)mdb.get(row)).weightStr);
+            weight.change(((Model.WeightRec)mdb.get(row)).getField(1));
         }
     }
 
@@ -825,18 +845,19 @@ public class Fitness implements EntryPoint {
 
         static class WeightRec extends Record {
             final double weight;
-            final String weightStr;
 
             WeightRec(Date date, double weight) {
                 super(date);
-                weightStr = d2s(weight);
                 if (Options.weightIsKilograms)
                     weight *= POUNDS_PER_KILO;
                 this.weight = weight;
             }
 
             String getField(int index) {
-                if (index == 1) {return weightStr;}
+                if (index == 1) {
+                    return d2s(weight / (Options.weightIsKilograms ? 
+                                         POUNDS_PER_KILO : 1));
+                }
                 return super.getField(index);
             }
         }
