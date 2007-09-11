@@ -103,17 +103,24 @@ public class Fitness implements EntryPoint {
 
     };
 
-    static class Input extends Composite implements ChangeListener {
+    static class Input extends Composite 
+                    implements ChangeListener, ClickListener {
         private final TextBox tb = new TextBox();
-        private final ChangeListener cl;
+        private final ChangeListener changeL;
+        private ClickListener clickL = null;
         private boolean isValid = true;
 
-        protected Input(String text, ChangeListener cl) {
-            this.cl = cl;
+        protected Input(String text, ChangeListener changeL) {
+            this.changeL = changeL;
             tb.addChangeListener(this);
+            tb.addClickListener(this);
             initWidget(tb);
             if (text != null)
                 change(text);
+        }
+
+        protected void setClickListener(ClickListener clickL) {
+            this.clickL = clickL;
         }
 
         protected void setVisibleLength(int len) {
@@ -155,8 +162,14 @@ public class Fitness implements EntryPoint {
 
         public void onChange(Widget sender) {
             setValid(validate());
-            if (isValid && cl != null && sender != null) {
-                cl.onChange(this);
+            if (isValid && changeL != null && sender != null) {
+                changeL.onChange(this);
+            }
+        }
+
+        public void onClick(Widget sender) {
+            if (clickL != null && sender != null) {
+                clickL.onClick(this);
             }
         }
 
@@ -164,19 +177,29 @@ public class Fitness implements EntryPoint {
     }
 
     static class DateInput extends Input {
-        static final DateTimeFormat mformat =
+        final static long DAY_IN_MILLIS = 24L * 60L * 60L * 1000L;
+        final static DateTimeFormat mformat =
             DateTimeFormat.getMediumDateFormat();
+        final static DateTimeFormat sformat = 
+            DateTimeFormat.getShortDateFormat();
         private Date date;
+        private final Dialog dialog = new Dialog(this);
 
         public DateInput(String text, ChangeListener cl) {
             super(text, cl);
             setVisibleLength(12);
         }
 
+        public DateInput(ChangeListener cl) {
+            this(null, cl);
+            set(today());
+        }
+
         protected boolean validate() {
             try {
                 String t = getText().trim();
                 date = mformat.parse(t);
+                // FIXME: check that date is not older than the history
                 setText(t);
                 return true;
             }
@@ -195,6 +218,174 @@ public class Fitness implements EntryPoint {
             setText(mformat.format(date));
             setValid(true);
         }
+
+        void set() {
+            set(today());
+        }
+
+        public void onClick(Widget sender) {
+            dialog.init(thisMonth(get()));
+            dialog.show();
+            super.onClick(sender);
+        }
+
+        static class Dialog extends Fitness.Dialog implements TableListener {
+            // FIXME: allow setting of first day of the week
+            static final DateTimeFormat yearF = 
+                DateTimeFormat.getFormat("yyyy");
+            static final DateTimeFormat monthF = 
+                DateTimeFormat.getFormat("MMMM");
+            static final DateTimeFormat dowF = DateTimeFormat.getFormat("E");
+            static final String[] DOW = new String[7];
+            private final DockPanel dp = new DockPanel();
+            private Grid g = new Grid(0, 7);
+            private Grid head = new Grid(1, 4);
+            private DateInput di;
+            private Date month;
+            private int nDays;
+
+            static {
+                Date day = today();
+                day = increment(day, -day.getDay());
+                DOW[0] = dowF.format(day);
+                for (int d = 1; d < 7; d++) {
+                    day = increment(day, 1);
+                    DOW[d] = dowF.format(day);
+                }
+            }
+
+            Dialog(DateInput di) {
+                super(c.date(), false);
+                this.di = di;
+                g.addTableListener(this);
+                g.setSize("100%", "100%");
+                //g.setBorderWidth(2);
+                dp.add(g, CENTER);
+                //dp.setBorderWidth(2);
+                head.setWidth("100%");
+                head.addTableListener(this);
+                dp.add(head, NORTH);
+                setContent(dp);
+            }
+
+            void init(Date month) {
+                boolean sameMonth = compare(month, thisMonth(di.get())) == 0;
+                int dom = di.get().getDate() - 1;
+                this.month = month;
+                Date nextMonth = thisMonth(increment(month, 45));
+                int dow = month.getDay();
+                int nWeeks = // FIXME: too big e.g., Nov 2007
+                    (diff(nextMonth, increment(month, -dow)) + 6)/ 7;
+                g.resizeRows(nWeeks + 1);
+                nDays = diff(nextMonth, month);
+                for (int d = 0; d < 7; d++) {
+                    g.setText(0, d, DOW[d]);
+                }
+                for (int row = 1; row <= nWeeks; row++) {
+                    for (int col = 0; col < 7; col++) {
+                        g.getCellFormatter().setStyleName(
+                            row, col, "gwt-TextBox");
+                        int d = (row - 1) * 7 + col - dow;
+                        g.getCellFormatter().setHorizontalAlignment(
+                            row, col, ALIGN_CENTER);
+                        if (sameMonth && d == dom)
+                            g.getCellFormatter().setStyleName(
+                                row, col, "gwt-TextBox-invalid");
+                        if (d < 0 || d >= nDays) {
+                            d = increment(month, d).getDate() - 1;
+                            g.getCellFormatter().setStyleName(
+                                row, col, "gwt-TextBox-readonly");
+                        }
+                        g.setText(row, col, String.valueOf(d + 1));
+                    }
+                }
+                for (int col = 0; col < 4; col++) {
+                    head.getCellFormatter().setHorizontalAlignment(
+                        0, col, ALIGN_CENTER);
+                }
+                head.setText(0, 0, "<<");
+                head.setText(0, 1, monthF.format(month));
+                head.setText(0, 2, yearF.format(month));
+                head.setText(0, 3, ">>");
+            }
+
+            public void onCellClicked(SourcesTableEvents sender, 
+                                      int row, int cell) {
+                if (sender == head) {
+                    if (cell > 0 && cell < 3)
+                        return;
+                    init(thisMonth(increment(month, cell == 0 ? -15 : 45)));
+                    return;
+                }
+                // sender == g
+                int d = (row - 1) * 7 + cell - month.getDay();
+                if (d < 0 || d >= nDays) {
+                    init(thisMonth(increment(month, d < 0 ? -15 : 45)));
+                    return;
+                }
+                di.set(increment(month, d));
+                dismiss();
+            }
+        }
+
+        /*
+         * The functions below should really be a part of an extension to Date
+         */
+        static String small(Date date) {
+            return sformat.format(date);
+        }
+
+        static Date today(long time) {
+            if (time < 0)
+                time = System.currentTimeMillis();
+            Date today = new Date(time);
+            return mformat.parse(mformat.format(today));
+        }
+
+        static Date today(Date d) {
+            return today(d.getTime());
+        }
+
+        static Date today() {
+            return today(-1);
+        }
+
+        // Assume that the arguments are "whole" days
+        static int diff(Date late, Date early) {
+            return (int)((late.getTime() - early.getTime() + 
+                          DAY_IN_MILLIS / 2) / DAY_IN_MILLIS);
+        }
+
+        // Assume that the argument is a "whole" days
+        static Date increment(Date d, int n) {
+            return today(d.getTime() + n * DAY_IN_MILLIS + DAY_IN_MILLIS / 2);
+        }
+
+        static Date previousDay(int n) {
+            return increment(today(), -n);
+        }
+
+        static Date yesterday() {
+            return previousDay(1);
+        }
+
+        static Date thisWeek() {
+            return previousDay(today().getDay());
+        }
+
+        static Date thisMonth(Date d) {
+            if (d == null)
+                d = today();
+            return increment(d, 1 - d.getDate());
+        }
+
+
+        public static int compare(Date d1, Date d2) {
+            // Unforturnately, time is not rounded to a full second
+            return (int)(d1.getTime() / 1000 - d2.getTime() / 1000);
+        }
+
+
     }
 
     static String d2s(double d) {
@@ -275,6 +466,7 @@ public class Fitness implements EntryPoint {
         }
 
         void setContent(Widget w, boolean fixed) {
+            w.setWidth("100%");
             if (fixed) {
                 w = new ScrollPanel(w);
                 w.setHeight("16em"); //FIXME: should this be in the style sheet?
@@ -294,72 +486,13 @@ public class Fitness implements EntryPoint {
         void update() {}
     }
 
-    static class DateView extends Composite {
-        final static long DAY_IN_MILLIS = 24L * 60L * 60L * 1000L;
-        final static DateTimeFormat sformat = 
-            DateTimeFormat.getShortDateFormat();
-        private final DateInput di;
-
-        DateView(ChangeListener cl) {
-            di = new DateInput(null, cl);
-            setDate();
-            initWidget(di);
-        }
-
-        DateView() {
-            this(null);
-        }
-
-        boolean isValid() {return di.isValid();}
-
-        Date getDate() {return di.get();}
-
-        void setDate(Date date) {di.set(date);}
-
-        void setDate() {setDate(today());}
-
-        void setReadOnly(boolean readonly) {di.setReadOnly(readonly);}
-
-        static String small(Date date) {
-            return sformat.format(date);
-        }
-
-        static Date today(long time) { // FIXME: too many Date instances?
-            if (time < 0)
-                time = System.currentTimeMillis();
-            Date today = new Date(time);
-            return DateInput.mformat.parse(DateInput.mformat.format(today));
-        }
-
-        static Date today() {
-            return today(-1);
-        }
-
-        // The date n days ago
-        static Date dayBefore(int n) {
-            return today(today().getTime() - n * DAY_IN_MILLIS);
-        }
-
-        static Date yesterday() {
-            return dayBefore(1);
-        }
-
-        static Date thisWeek() {
-            return dayBefore(today().getDay());
-        }
-
-        static Date thisMonth() {
-            return dayBefore(today().getDate() - 1);
-        }
-    }
-
     static class Totals extends Page implements ChangeListener {
         final Grid tg;
         final ChangeListener dateCL = new ChangeListener() {
             public void onChange(Widget sender) {update();}
         };
-        final DateView fromDate = new DateView(dateCL);
-        final DateView thruDate = new DateView(dateCL);
+        final DateInput fromDate = new DateInput(dateCL);
+        final DateInput thruDate = new DateInput(dateCL);
         final ListBox showFor = new ListBox();
 
         Totals() {
@@ -411,34 +544,34 @@ public class Fitness implements EntryPoint {
             String showFor = lb.getItemText(lb.getSelectedIndex());
             boolean readonly = true;
             if      (showFor.equals(c.today())) {
-                fromDate.setDate();
-                thruDate.setDate();
+                fromDate.set();
+                thruDate.set();
             }
             else if (showFor.equals(c.yesterday())) {
-                fromDate.setDate(DateView.yesterday());
-                thruDate.setDate(DateView.yesterday());
+                fromDate.set(DateInput.yesterday());
+                thruDate.set(DateInput.yesterday());
             }
             else if (showFor.equals(c.thisWeek())) {
-                fromDate.setDate(DateView.thisWeek());
-                thruDate.setDate(DateView.yesterday());
+                fromDate.set(DateInput.thisWeek());
+                thruDate.set(DateInput.yesterday());
             }
             else if (showFor.equals(c.thisMonth())) {
-                fromDate.setDate(DateView.thisMonth());
-                thruDate.setDate(DateView.yesterday());
+                fromDate.set(DateInput.thisMonth(null));
+                thruDate.set(DateInput.yesterday());
             }
             else if (showFor.equals(c.allData())) {
                 Date from = ((Model.Record)Model.food.first()).date;
-                if (Model.pA.compare(
+                if (DateInput.compare(
                         ((Model.Record)Model.pA.first()).date, from) < 0) {
                     from = ((Model.Record)Model.pA.first()).date;
                 }
                 Date thru = ((Model.Record)Model.food.last()).date;
-                if (Model.pA.compare(
+                if (DateInput.compare(
                         thru, ((Model.Record)Model.pA.last()).date) < 0) {
                     thru = ((Model.Record)Model.pA.last()).date;
                 }
-                fromDate.setDate(from);
-                thruDate.setDate(thru);
+                fromDate.set(from);
+                thruDate.set(thru);
             }
             else if (showFor.equals(c.range())) {
                 readonly = false;
@@ -449,7 +582,7 @@ public class Fitness implements EntryPoint {
         }
 
         void update() {
-            Model.Totals.update(fromDate.getDate(), thruDate.getDate());
+            Model.Totals.update(fromDate.get(), thruDate.get());
             tg.setText(0, 1, Model.Totals.caloriesIn);
             tg.setText(1, 1, Model.Totals.pACalories);
             tg.setText(2, 1, Model.Totals.metabolism);
@@ -504,27 +637,32 @@ public class Fitness implements EntryPoint {
         }
     }
 
-    static abstract class Dialog extends Page {
+    static class Dialog extends Page {
         private String title;
         private int lastPage;
 
-        Dialog(String title) {
+        Dialog(String title, boolean withButtons) {
             this.title = title;
             
-            addButton(c.oK(), new ClickListener() {
-                public void onClick(Widget sender) {
-                    accept();
-                }
-            });
-            addButton(c.cancel(), new ClickListener() {
-                public void onClick(Widget sender) {
-                    dismiss();
-                }
-            });
-
+            if (withButtons) {
+                addButton(c.oK(), new ClickListener() {
+                    public void onClick(Widget sender) {
+                        accept();
+                    }
+                });
+                addButton(c.cancel(), new ClickListener() {
+                    public void onClick(Widget sender) {
+                        dismiss();
+                    }
+                });
+            }
         }
 
-        abstract void accept();
+        Dialog(String title) {
+            this(title, true);
+        }
+
+        void accept() {}
 
         void dismiss() {hide();}
 
@@ -542,9 +680,9 @@ public class Fitness implements EntryPoint {
         }
     }
 
-    static abstract class Record extends Dialog {
+    static class Record extends Dialog {
         protected final Grid g = new Grid(2, 2);
-        protected final DateView date = new DateView();
+        protected final DateInput date = new DateInput(null);
         protected DB db;
         protected Model.DB mdb;
         protected int row = -1;
@@ -553,6 +691,7 @@ public class Fitness implements EntryPoint {
             super(title);
             g.setText(0, 0, c.date());
             g.setWidget(0, 1, date);
+            g.setWidth("100%");
             setContent(g);
         }
 
@@ -572,13 +711,13 @@ public class Fitness implements EntryPoint {
 
         void dismiss() {
             row = -1;
-            date.setDate();
+            date.set();
             super.dismiss();
         }
 
         void init(int row) {
             this.row = row;
-            date.setDate(((Model.Record)mdb.get(row)).date);
+            date.set(((Model.Record)mdb.get(row)).date);
         }
     }
 
@@ -612,7 +751,7 @@ public class Fitness implements EntryPoint {
             if (!date.isValid() || !quantity.isValid() || !calPerUnit.isValid())
                 return;
             Model.CalRec mcr = 
-                new Model.CalRec(date.getDate(), desc.getText(), 
+                new Model.CalRec(date.get(), desc.getText(), 
                                  quantity.get(), calPerUnit.get());
             apply(mcr);
         }
@@ -648,7 +787,7 @@ public class Fitness implements EntryPoint {
             if (!date.isValid() || !weight.isValid())
                 return;
             Model.WeightRec mwr = 
-                new Model.WeightRec(date.getDate(), weight.get());
+                new Model.WeightRec(date.get(), weight.get());
             apply(mwr);
         }
 
@@ -758,8 +897,7 @@ public class Fitness implements EntryPoint {
                     CalRec cr = (CalRec)it.next();
                     pACalories += cr.calories;
                 }
-                long daysInRange = (thruDate.getTime() - fromDate.getTime() + 
-                    DateView.DAY_IN_MILLIS / 2) / DateView.DAY_IN_MILLIS + 1L;
+                int daysInRange = DateInput.diff(thruDate, fromDate) + 1;
                 Totals.daysInRange = String.valueOf(daysInRange);
                 Totals.caloriesIn = d2s(caloriesIn / daysInRange);
                 Totals.pACalories = d2s(pACalories / daysInRange);
@@ -810,7 +948,7 @@ public class Fitness implements EntryPoint {
 
             Record(Date date) {
                 this.date = date;
-                this.dateViewStr = DateView.small(date);
+                this.dateViewStr = DateInput.small(date);
             }
 
             String getField(int index) {
@@ -885,15 +1023,6 @@ public class Fitness implements EntryPoint {
                 return Collections.binarySearch(al, o, this);
             }
 
-            public int compare(Date d1, Date d2) {
-                // Unforturnately, time is not rounded to a full second
-                return (int)(d1.getTime() / 1000 - d2.getTime() / 1000);
-            }
-
-            public int compare(Object o1, Object o2) {
-                return compare(((Record)o1).date, ((Record)o2).date);
-            }
-
             public boolean add(Object o) {
                 int index = search(o);
                 int size = size();
@@ -908,6 +1037,10 @@ public class Fitness implements EntryPoint {
                 return true;
             }
 
+            public int compare(Object o1, Object o2) {
+                return DateInput.compare(((Record)o1).date, ((Record)o2).date);
+            }
+
             Object first() {return get(0);}
 
             Object last() {return get(size() - 1);}
@@ -917,11 +1050,11 @@ public class Fitness implements EntryPoint {
             }
 
             void truncate() {
-                Date firstDate = DateView.dayBefore(Options.history - 1);
+                Date firstDate = DateInput.previousDay(Options.history - 1);
                 Iterator it = al.iterator();
                 while (it.hasNext()) {
                     Record r = (Record)it.next();
-                    if (compare(firstDate, r.date) <= 0)
+                    if (DateInput.compare(firstDate, r.date) <= 0)
                         break;
                     it.remove();
                 }
@@ -948,8 +1081,9 @@ public class Fitness implements EntryPoint {
                         index = db.search(fromDate);
                         if (index >= 0) {
                             while (index > 0 && 
-                                   db.compare(((Record)db.get(index - 1)).date, 
-                                              thruDate) == 0) {
+                                    DateInput.compare(
+                                        ((Record)db.get(index - 1)).date, 
+                                        thruDate) == 0) {
                                 index--;
                             }
                         }
@@ -975,7 +1109,7 @@ public class Fitness implements EntryPoint {
                     if (iter.hasNext()) {
                         next = (Record)iter.next();
                         if (thruDate != null && 
-                            db.compare(next.date, thruDate) > 0) {
+                            DateInput.compare(next.date, thruDate) > 0) {
                             next = null;
                         }
                     }
@@ -999,24 +1133,24 @@ public class Fitness implements EntryPoint {
             Options.metabolism = 11.0;
             Options.goalWeight = 77.0;
 
-            food.add(new CalRec(DateView.today(), "pasta", 14.0, 20.0));
-            food.add(new CalRec(DateView.dayBefore(50), "pasta", 18.0, 20.0));
-            food.add(new CalRec(DateView.dayBefore(95), "pasta", 28.0, 20.0));
+            food.add(new CalRec(DateInput.today(), "pasta", 14.0, 20.0));
+            food.add(new CalRec(DateInput.previousDay(50), "pasta", 18.0, 20.0));
+            food.add(new CalRec(DateInput.previousDay(95), "pasta", 28.0, 20.0));
 
-            pA.add(new CalRec(DateView.today(), "walking", 0.5, 300.0));
+            pA.add(new CalRec(DateInput.today(), "walking", 0.5, 300.0));
 
-            weight.add(new WeightRec(DateView.dayBefore(50), 90.0));
-            weight.add(new WeightRec(DateView.dayBefore(34), 87.0));
-            weight.add(new WeightRec(DateView.dayBefore(12), 84.0));
-            weight.add(new WeightRec(DateView.dayBefore(2), 82.0));
+            weight.add(new WeightRec(DateInput.previousDay(50), 90.0));
+            weight.add(new WeightRec(DateInput.previousDay(34), 87.0));
+            weight.add(new WeightRec(DateInput.previousDay(12), 84.0));
+            weight.add(new WeightRec(DateInput.previousDay(2), 82.0));
 
         }
 
     }
 
-    static void log(String message) {
+    static void log(Object message) {
         System.err.println(message);
-        Console.println(message);
+        Console.println(message.toString());
     }
 
 
