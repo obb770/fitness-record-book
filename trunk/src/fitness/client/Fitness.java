@@ -259,9 +259,7 @@ public class Fitness implements EntryPoint {
                 this.di = di;
                 g.addTableListener(this);
                 g.setSize("100%", "100%");
-                //g.setBorderWidth(2);
                 dp.add(g, CENTER);
-                //dp.setBorderWidth(2);
                 head.setWidth("100%");
                 head.addTableListener(this);
                 dp.add(head, NORTH);
@@ -274,7 +272,7 @@ public class Fitness implements EntryPoint {
                 this.month = month;
                 Date nextMonth = thisMonth(increment(month, 45));
                 int dow = month.getDay();
-                int nWeeks = // FIXME: too big e.g., Nov 2007
+                int nWeeks = 
                     (diff(nextMonth, increment(month, -dow)) + 6)/ 7;
                 g.resizeRows(nWeeks + 1);
                 nDays = diff(nextMonth, month);
@@ -284,17 +282,17 @@ public class Fitness implements EntryPoint {
                 for (int row = 1; row <= nWeeks; row++) {
                     for (int col = 0; col < 7; col++) {
                         g.getCellFormatter().setStyleName(
-                            row, col, "gwt-TextBox");
+                            row, col, "gwt-DateInput-Dialog");
                         int d = (row - 1) * 7 + col - dow;
                         g.getCellFormatter().setHorizontalAlignment(
                             row, col, ALIGN_CENTER);
                         if (sameMonth && d == dom)
                             g.getCellFormatter().setStyleName(
-                                row, col, "gwt-TextBox-invalid");
+                                row, col, "gwt-DateInput-Dialog-current");
                         if (d < 0 || d >= nDays) {
                             d = increment(month, d).getDate() - 1;
                             g.getCellFormatter().setStyleName(
-                                row, col, "gwt-TextBox-readonly");
+                                row, col, "gwt-DateInput-Dialog-anotherMonth");
                         }
                         g.setText(row, col, String.valueOf(d + 1));
                     }
@@ -329,7 +327,7 @@ public class Fitness implements EntryPoint {
         }
 
         /*
-         * The functions below should really be a part of an extension to Date
+         * The functions below should really be a part of an subclass of Date
          */
         static String small(Date date) {
             return sformat.format(date);
@@ -356,7 +354,7 @@ public class Fitness implements EntryPoint {
                           DAY_IN_MILLIS / 2) / DAY_IN_MILLIS);
         }
 
-        // Assume that the argument is a "whole" days
+        // Assume that the argument is a "whole" day
         static Date increment(Date d, int n) {
             return today(d.getTime() + n * DAY_IN_MILLIS + DAY_IN_MILLIS / 2);
         }
@@ -638,8 +636,9 @@ public class Fitness implements EntryPoint {
     }
 
     static class Dialog extends Page {
+        static private ArrayList pageStack = new ArrayList();
+
         private String title;
-        private int lastPage;
 
         Dialog(String title, boolean withButtons) {
             this.title = title;
@@ -667,8 +666,9 @@ public class Fitness implements EntryPoint {
         void dismiss() {hide();}
 
         void show() {
-            lastPage = main.getSelectedIndex();
+            pageStack.add(0, new Integer(main.getSelectedIndex()));
             main.insert(this, title, 0);
+            main.setModal(false);
             main.selectTab(0);
             main.setModal(true);
         }
@@ -676,7 +676,7 @@ public class Fitness implements EntryPoint {
         void hide() {
             main.setModal(false);
             main.remove(this);
-            main.selectTab(lastPage);
+            main.selectTab(((Integer)pageStack.remove(0)).intValue());
         }
     }
 
