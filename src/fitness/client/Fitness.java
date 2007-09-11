@@ -322,6 +322,7 @@ public class Fitness implements EntryPoint {
                     return;
                 }
                 di.set(increment(month, d));
+                di.change(di.getText());
                 dismiss();
             }
         }
@@ -486,12 +487,20 @@ public class Fitness implements EntryPoint {
 
     static class Totals extends Page implements ChangeListener {
         final Grid tg;
+        final ListBox showFor = new ListBox();
         final ChangeListener dateCL = new ChangeListener() {
-            public void onChange(Widget sender) {update();}
+            public void onChange(Widget sender) {
+                for (int i = 0; i < showFor.getItemCount(); i++) {
+                    if (showFor.getItemText(i).equals(c.range())) {
+                        showFor.setItemSelected(i, true);
+                        break;
+                    }
+                }
+                Totals.this.onChange(showFor);
+            }
         };
         final DateInput fromDate = new DateInput(dateCL);
         final DateInput thruDate = new DateInput(dateCL);
-        final ListBox showFor = new ListBox();
 
         Totals() {
             VerticalPanel vp = new VerticalPanel();
