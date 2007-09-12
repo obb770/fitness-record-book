@@ -22,6 +22,8 @@ import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.Comparator;
 import java.util.Collections;
+import java.util.Collection;
+import java.util.HashSet;
 
 import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
@@ -48,6 +50,10 @@ import com.google.gwt.user.client.ui.RadioButton;
 import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.ClickListener;
 import com.google.gwt.user.client.ui.DialogBox;
+import com.google.gwt.user.client.ui.SuggestBox;
+import com.google.gwt.user.client.ui.MultiWordSuggestOracle;
+import com.google.gwt.user.client.ui.SuggestionHandler;
+import com.google.gwt.user.client.ui.SuggestionEvent;
 import com.google.gwt.user.client.ui.RootPanel;
 
 public class Fitness implements EntryPoint {
@@ -162,6 +168,7 @@ public class Fitness implements EntryPoint {
         }
 
         public void onChange(Widget sender) {
+            setText(getText().trim());
             setValid(validate());
             if (isValid && changeL != null && sender != null) {
                 changeL.onChange(this);
@@ -198,7 +205,7 @@ public class Fitness implements EntryPoint {
 
         protected boolean validate() {
             try {
-                String t = getText().trim();
+                String t = getText();
                 date = mformat.parse(t);
                 setText(t);
                 return true;
@@ -714,6 +721,7 @@ public class Fitness implements EntryPoint {
         }
 
         void setDB(DB db) {this.db = db;}
+
         void setModelDB(Model.DB mdb) {this.mdb = mdb;}
 
         void apply(Model.Record mr) {
@@ -740,7 +748,7 @@ public class Fitness implements EntryPoint {
     }
 
     static class CalRec extends Record {
-        private final TextBox desc = new TextBox();
+        private final SuggestBox desc = new SuggestBox();
         private final DoubleInput quantity = new DoubleInput(null, null);
         private final ListBox unit = new ListBox();
         private final DoubleInput calPerUnit = new DoubleInput(null, null);
@@ -751,6 +759,25 @@ public class Fitness implements EntryPoint {
 
             g.setText(1, 0, c.desc());
             g.setWidget(1, 1, desc);
+            desc.addEventHandler(new SuggestionHandler() {
+                public void onSuggestionSelected(SuggestionEvent se) {
+                    String text = 
+                        se.getSelectedSuggestion().getReplacementString();
+                    int index = text.lastIndexOf(' ');
+                    if (index < 0)
+                        return;
+                    String cpu = text.substring(index + 1);
+                    text = text.substring(0, index);
+                    index = text.lastIndexOf(' ');
+                    if (index < 0)
+                        return;
+                    desc.setText(text.substring(0, index));
+                    desc.setFocus(false);
+                    quantity.change(text.substring(index + 1));
+                    calPerUnit.change(cpu);
+
+                }
+            });
 
             g.setText(2, 0, c.quantity());
             g.setWidget(2, 1, quantity);
@@ -789,6 +816,14 @@ public class Fitness implements EntryPoint {
             quantity.change(mcr.quantity);
             //FIXME: set unit (need to save it first in the model)
             calPerUnit.change(mcr.calPerUnit);
+        }
+
+        void show() {
+            MultiWordSuggestOracle mwso = 
+                (MultiWordSuggestOracle)desc.getSuggestOracle();
+            mwso.clear();
+            mwso.addAll(mdb.suggest());
+            super.show();
         }
     }
 
@@ -981,6 +1016,7 @@ public class Fitness implements EntryPoint {
             final String calPerUnit;
             final double calories;
             final String caloriesStr;
+            final String suggest;
 
             CalRec(Date date, String desc, double quantity, double calPerUnit) {
                 super(date);
@@ -989,6 +1025,7 @@ public class Fitness implements EntryPoint {
                 this.calPerUnit = d2s(calPerUnit);
                 this.calories = quantity * calPerUnit;
                 this.caloriesStr = d2s(calories);
+                this.suggest = desc + " " + quantity + " " + calPerUnit;
             }
 
             String getField(int index) {
@@ -996,7 +1033,6 @@ public class Fitness implements EntryPoint {
                 if (index == 2) {return caloriesStr;}
                 return super.getField(index);
             }
-
         }
 
         static class WeightRec extends Record {
@@ -1078,6 +1114,14 @@ public class Fitness implements EntryPoint {
                 }
             }
 
+            Collection suggest() {
+                HashSet hs = new HashSet();
+                for (Iterator i = al.iterator(); i.hasNext();) {
+                    hs.add(((CalRec)i.next()).suggest);
+                }
+                return hs;
+            }
+
             Iterator range() {
                 if (this != weight)
                     truncate();
@@ -1153,6 +1197,7 @@ public class Fitness implements EntryPoint {
 
             food.add(new CalRec(DateInput.today(), "pasta", 14.0, 20.0));
             food.add(new CalRec(DateInput.previousDay(50), "pasta", 18.0, 20.0));
+            food.add(new CalRec(DateInput.previousDay(65), "bread", 8.0, 20.0));
             food.add(new CalRec(DateInput.previousDay(95), "pasta", 28.0, 20.0));
 
             pA.add(new CalRec(DateInput.today(), "walking", 0.5, 300.0));
