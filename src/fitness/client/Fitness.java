@@ -65,6 +65,7 @@ public class Fitness implements EntryPoint {
     }
 
     public void onModuleLoad() {
+        // Console.show();
         totals = new Totals();
         food = new DB(Model.food, new CalRec(c.editFood(), c.foodUnits())); 
         pA = new DB(Model.pA, new CalRec(c.editPA(), c.pAUnits())); 
@@ -199,7 +200,6 @@ public class Fitness implements EntryPoint {
             try {
                 String t = getText().trim();
                 date = mformat.parse(t);
-                // FIXME: check that date is not older than the history
                 setText(t);
                 return true;
             }
@@ -255,7 +255,7 @@ public class Fitness implements EntryPoint {
             }
 
             Dialog(DateInput di) {
-                super(c.date(), false);
+                super(c.date(), false, true);
                 this.di = di;
                 g.addTableListener(this);
                 g.setSize("100%", "100%");
@@ -390,6 +390,10 @@ public class Fitness implements EntryPoint {
     static String d2s(double d) {
         long l = (long)(d * 100 + 0.5);
         d = l / 100.0;
+        if (d >= 1e6)
+            return "999999.99";
+        if (d <= -1e6)
+            return "-999999.99";
         return String.valueOf(d);
     }
 
@@ -468,8 +472,9 @@ public class Fitness implements EntryPoint {
             w.setWidth("100%");
             if (fixed) {
                 w = new ScrollPanel(w);
-                w.setHeight("16em"); //FIXME: should this be in the style sheet?
-                w.setWidth("20em"); //FIXME: should this be in the style sheet?
+                    //FIXME: should these sizes be in the style sheet?
+                w.setHeight("16em");
+                w.setWidth("20em");
             }
             add(w, CENTER);
         }
@@ -490,6 +495,8 @@ public class Fitness implements EntryPoint {
         final ListBox showFor = new ListBox();
         final ChangeListener dateCL = new ChangeListener() {
             public void onChange(Widget sender) {
+                // FIXME: validate that from <= to and today - from <= history
+                showFor.setItemSelected(showFor.getSelectedIndex(), false);
                 for (int i = 0; i < showFor.getItemCount(); i++) {
                     if (showFor.getItemText(i).equals(c.range())) {
                         showFor.setItemSelected(i, true);
@@ -649,15 +656,17 @@ public class Fitness implements EntryPoint {
 
         private String title;
 
-        Dialog(String title, boolean withButtons) {
+        Dialog(String title, boolean hasOK, boolean hasCancel) {
             this.title = title;
             
-            if (withButtons) {
+            if (hasOK) {
                 addButton(c.oK(), new ClickListener() {
                     public void onClick(Widget sender) {
                         accept();
                     }
                 });
+            }
+            if (hasCancel) {
                 addButton(c.cancel(), new ClickListener() {
                     public void onClick(Widget sender) {
                         dismiss();
@@ -667,7 +676,7 @@ public class Fitness implements EntryPoint {
         }
 
         Dialog(String title) {
-            this(title, true);
+            this(title, true, true);
         }
 
         void accept() {}
