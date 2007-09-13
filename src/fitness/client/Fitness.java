@@ -938,7 +938,9 @@ public class Fitness implements EntryPoint {
             });
             g.setWidget(4, 1, cb);
 
-            g.setText(4, 1, "$Rev$");
+            g.setText(5, 0, c.revision());
+            String rev = "$Rev$";
+            g.setText(5, 1, rev.substring(6, rev.length() - 2));
 
             g.setWidth("100%");
             vp.add(g);
