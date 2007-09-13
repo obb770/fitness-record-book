@@ -33,6 +33,7 @@ import com.google.gwt.i18n.client.DateTimeFormat;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.TabPanel;
+import com.google.gwt.user.client.ui.TabListener;
 import com.google.gwt.user.client.ui.SourcesTabEvents;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.DockPanel;
@@ -72,43 +73,83 @@ public class Fitness implements EntryPoint {
 
     public void onModuleLoad() {
         // Console.show();
+
         totals = new Totals();
-        food = new DB(Model.food, new CalRec(c.editFood(), c.foodUnits())); 
-        pA = new DB(Model.pA, new CalRec(c.editPA(), c.pAUnits())); 
-        weight = new DB(Model.weight, new WeightRec(c.editWeight()));
+        food = new DB(c.food(), Model.food, 
+                      new CalRec(c.editFood(), c.foodUnits())); 
+        pA = new DB(c.pA(), Model.pA, new CalRec(c.editPA(), c.pAUnits())); 
+        weight = new DB(c.weight(), 
+                        Model.weight, new WeightRec(c.editWeight()));
+        
+        Page[] pages = {totals, food, pA, weight};
+        main = new Main(pages);
+
         options = new Options();
 
-        main = new Main();
         RootPanel.get().add(main);
     }
 
-    static class Main extends TabPanel {
-        private int selectedIndex = -1;
-        private boolean isModal = false;
+    static class Main extends Composite implements TabListener {
+        private TabPanel tp = new TabPanel();
+        private ArrayList state = new ArrayList();
+        private int size = 0;
+        private int selectedIndex = 0;
 
-        {
-            add(Fitness.totals, c.totals());
-            add(Fitness.food, c.food());
-            add(Fitness.pA, c.pA());
-            add(Fitness.weight, c.weight());
-            selectTab(0);
+        Main(Page[] pages) {
+            for (int i = 0; i < pages.length; i++) {
+                add(pages[i], false);
+            }
+            tp.selectTab(0);
+            tp.addTabListener(this);
+            initWidget(tp);
         }
+
+        void add(Page p, boolean isDialog) {
+            state.add(p);
+            if (isDialog) {
+                tp.insert(p, p.title, 0);
+                tp.selectTab(0);
+                return;
+            }
+            tp.add(p, p.title);
+            size++;
+        }
+
+        public void onTabSelected(SourcesTabEvents sender, int tabIndex) {}
 
         public boolean onBeforeTabSelected(SourcesTabEvents sender,
                                            int tabIndex) {
-            if (isModal)
-                return false;
-            selectedIndex = tabIndex;
-            Widget tab = getWidget(tabIndex);
-            ((Page)tab).update();
-            return super.onBeforeTabSelected(sender, tabIndex);
+            if (state.size() == size) {
+                selectedIndex = tabIndex;
+                Widget tab = tp.getWidget(tabIndex);
+                ((Page)tab).update();
+            }
+            return true;
         }
 
-        void setModal(boolean isModal) {this.isModal = isModal;}
+        void show(Dialog p) {
+            int c = tp.getWidgetCount();
+            while (c-- > 0)
+                tp.remove(0);
+            add(p, true);
+        }
 
-        int getSelectedIndex() {return selectedIndex;}
+        void hide() {
+            tp.remove(0);
+            state.remove(state.size() - 1);
+            if (state.size() > size) {
+                Page p = (Page)state.remove(state.size() - 1);
+                add(p, true);
+                return;
+            }
+            for (Iterator it = state.iterator(); it.hasNext();) {
+                Page p = (Page)it.next();
+                tp.add(p, p.title);
+            }
+            tp.selectTab(selectedIndex);
+        }
 
-    };
+    }
 
     static class Input extends Composite 
                     implements ChangeListener, ClickListener {
@@ -467,9 +508,11 @@ public class Fitness implements EntryPoint {
     }
 
     static class Page extends DockPanel {
-        FlowPanel buttons = new FlowPanel();
+        final String title;
+        final FlowPanel buttons = new FlowPanel();
 
-        Page() {
+        Page(String title) {
+            this.title = title;
             setSpacing(4);
             add(buttons, SOUTH);
             setCellHorizontalAlignment(buttons, ALIGN_CENTER);
@@ -517,6 +560,8 @@ public class Fitness implements EntryPoint {
         final DateInput thruDate = new DateInput(dateCL);
 
         Totals() {
+            super(c.totals());
+
             VerticalPanel vp = new VerticalPanel();
             Grid g = new Grid(1, 2);
             g.setText(0, 0, c.showTotalsFor());
@@ -574,11 +619,11 @@ public class Fitness implements EntryPoint {
             }
             else if (showFor.equals(c.thisWeek())) {
                 fromDate.set(DateInput.thisWeek());
-                thruDate.set(DateInput.yesterday());
+                thruDate.set(DateInput.today());
             }
             else if (showFor.equals(c.thisMonth())) {
                 fromDate.set(DateInput.thisMonth(null));
-                thruDate.set(DateInput.yesterday());
+                thruDate.set(DateInput.today());
             }
             else if (showFor.equals(c.allData())) {
                 Date from = ((Model.Record)Model.food.first()).date;
@@ -620,7 +665,8 @@ public class Fitness implements EntryPoint {
         final Grid g;
         int count;
 
-        DB(Model.DB mdb, Record record) { 
+        DB(String title, Model.DB mdb, Record record) { 
+            super(title);
             this.mdb = mdb;
             this.record = record;
             record.setDB(this);
@@ -659,12 +705,10 @@ public class Fitness implements EntryPoint {
     }
 
     static class Dialog extends Page {
-        static private ArrayList pageStack = new ArrayList();
-
         private String title;
 
         Dialog(String title, boolean hasOK, boolean hasCancel) {
-            this.title = title;
+            super(title);
             
             if (hasOK) {
                 addButton(c.oK(), new ClickListener() {
@@ -691,17 +735,11 @@ public class Fitness implements EntryPoint {
         void dismiss() {hide();}
 
         void show() {
-            pageStack.add(0, new Integer(main.getSelectedIndex()));
-            main.insert(this, title, 0);
-            main.setModal(false);
-            main.selectTab(0);
-            main.setModal(true);
+            main.show(this);
         }
 
         void hide() {
-            main.setModal(false);
-            main.remove(this);
-            main.selectTab(((Integer)pageStack.remove(0)).intValue());
+            main.hide();
         }
     }
 
