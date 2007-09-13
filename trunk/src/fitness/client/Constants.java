@@ -66,5 +66,6 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     String badDouble();
     String badInteger();
     String console();
+    String revision();
 
 }
