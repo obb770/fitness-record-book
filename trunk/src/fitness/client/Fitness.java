@@ -904,7 +904,7 @@ public class Fitness implements EntryPoint {
             super(c.options());
 
             VerticalPanel vp = new VerticalPanel();
-            Grid g = new Grid(5, 2);
+            Grid g = new Grid(6, 2);
 
             g.setText(0, 0, c.metabolismOpt());
             metabolism = new DoubleInput(d2s(Model.Options.metabolism), null);
@@ -937,6 +937,8 @@ public class Fitness implements EntryPoint {
                 }
             });
             g.setWidget(4, 1, cb);
+
+            g.setText(4, 1, "$Rev$");
 
             g.setWidth("100%");
             vp.add(g);
