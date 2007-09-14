@@ -45,6 +45,7 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     String pounds();
     String kilograms();
     String historyDays();
+    int minimalHistory();
     String oK();
     String cancel();
 
@@ -61,6 +62,7 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     String calPerUnit();
     String editWeight();
     String weightRec();
+    String del();
 
     String badDate();
     String badDouble();
