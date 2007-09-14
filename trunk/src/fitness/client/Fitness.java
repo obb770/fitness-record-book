@@ -303,7 +303,8 @@ public class Fitness implements EntryPoint {
             }
 
             Dialog(DateInput di) {
-                super(c.date(), false, true);
+                super(c.date());
+                addButton(createCancel());
                 this.di = di;
                 g.addTableListener(this);
                 g.setSize("100%", "100%");
@@ -531,11 +532,15 @@ public class Fitness implements EntryPoint {
 
         void setContent(Widget w) {setContent(w, true);}
 
-        void addButton(String name, ClickListener cl) {
+        static Button createButton(String name, ClickListener cl) {
             Button b = new Button(name);
             b.addClickListener(cl);
-            buttons.add(b);
+            return b;
         }
+
+        void addButton(Button b) {buttons.add(b);}
+
+        void clearButtons() {buttons.clear();}
 
         void update() {}
     }
@@ -596,11 +601,12 @@ public class Fitness implements EntryPoint {
 
             setContent(vp);
             
-            addButton(c.options(), new ClickListener() {
+            Button b = createButton(c.options(), new ClickListener() {
                 public void onClick(Widget sender) {
                     Fitness.options.show();
                 }
             });
+            addButton(b);
 
             onChange(showFor);
         }
@@ -676,11 +682,12 @@ public class Fitness implements EntryPoint {
             g.addTableListener(this);
             setContent(g);
 
-            addButton(c.newButton(), new ClickListener() {
+            Button b = createButton(c.newButton(), new ClickListener() {
                 public void onClick(Widget sender) {
-                    DB.this.record.show();
+                    DB.this.record.show(true);
                 }
             });
+            addButton(b);
         }
 
         void update() {
@@ -700,34 +707,32 @@ public class Fitness implements EntryPoint {
         public void onCellClicked(SourcesTableEvents sender, 
                                   int row, int cell) {
             record.init(count - 1 - row);
-            record.show();
+            record.show(false);
         }
     }
 
     static class Dialog extends Page {
         private String title;
 
-        Dialog(String title, boolean hasOK, boolean hasCancel) {
+        Dialog(String title) {
             super(title);
             
-            if (hasOK) {
-                addButton(c.oK(), new ClickListener() {
-                    public void onClick(Widget sender) {
-                        accept();
-                    }
-                });
-            }
-            if (hasCancel) {
-                addButton(c.cancel(), new ClickListener() {
-                    public void onClick(Widget sender) {
-                        dismiss();
-                    }
-                });
-            }
         }
 
-        Dialog(String title) {
-            this(title, true, true);
+        Button createOK() {
+            return createButton(c.oK(), new ClickListener() {
+                public void onClick(Widget sender) {
+                    accept();
+                }
+            });
+        }
+
+        Button createCancel() {
+            return createButton(c.cancel(), new ClickListener() {
+                public void onClick(Widget sender) {
+                    dismiss();
+                }
+            });
         }
 
         void accept() {}
@@ -749,6 +754,9 @@ public class Fitness implements EntryPoint {
         protected DB db;
         protected Model.DB mdb;
         protected int row = -1;
+        protected final Button oKB = createOK();
+        protected final Button delB = createDel();
+        protected final Button cancelB = createCancel();
 
         Record(String title) {
             super(title);
@@ -756,6 +764,18 @@ public class Fitness implements EntryPoint {
             g.setWidget(0, 1, date);
             g.setWidth("100%");
             setContent(g);
+        }
+
+
+        Button createDel() {
+            return createButton(c.del(), new ClickListener() {
+                public void onClick(Widget sender) {
+                    if (row >= 0)
+                        mdb.remove(row);
+                    db.update();
+                    dismiss();
+                }
+            });
         }
 
         void setDB(DB db) {this.db = db;}
@@ -782,6 +802,15 @@ public class Fitness implements EntryPoint {
         void init(int row) {
             this.row = row;
             date.set(((Model.Record)mdb.get(row)).date);
+        }
+
+        void show(boolean isNew) {
+            clearButtons();
+            addButton(oKB);
+            if (!isNew)
+                addButton(delB);
+            addButton(cancelB);
+            super.show();
         }
     }
 
@@ -856,12 +885,12 @@ public class Fitness implements EntryPoint {
             calPerUnit.change(mcr.calPerUnit);
         }
 
-        void show() {
+        void show(boolean isNew) {
             MultiWordSuggestOracle mwso = 
                 (MultiWordSuggestOracle)desc.getSuggestOracle();
             mwso.clear();
             mwso.addAll(mdb.suggest());
-            super.show();
+            super.show(isNew);
         }
     }
 
@@ -902,6 +931,8 @@ public class Fitness implements EntryPoint {
 
         Options() {
             super(c.options());
+            addButton(createOK());
+            addButton(createCancel());
 
             VerticalPanel vp = new VerticalPanel();
             Grid g = new Grid(6, 2);
@@ -953,6 +984,8 @@ public class Fitness implements EntryPoint {
                 !goalWeight.isValid() ||
                 !history.isValid())
                 return;
+            if (history.get() < c.minimalHistory())
+                history.set(c.minimalHistory());
             Model.Options.update(
                     metabolism.get(),
                     goalWeight.get(),
@@ -1018,7 +1051,7 @@ public class Fitness implements EntryPoint {
             static double goalWeight = 0.0;
             static boolean weightIsPounds = false;
             static boolean weightIsKilograms = true;
-            static int history = 90;
+            static int history = c.minimalHistory();
 
             static void update(
                 double metabolism,
@@ -1131,6 +1164,10 @@ public class Fitness implements EntryPoint {
                     al.add(-index - 1, o);
                 }
                 return true;
+            }
+
+            public Object remove(int index) {
+                return al.remove(index);
             }
 
             public int compare(Object o1, Object o2) {
