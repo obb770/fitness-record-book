@@ -75,9 +75,8 @@ public class Fitness implements EntryPoint {
         // Console.show();
 
         totals = new Totals();
-        food = new DB(c.food(), Model.food, 
-                      new CalRec(c.editFood(), c.foodUnits())); 
-        pA = new DB(c.pA(), Model.pA, new CalRec(c.editPA(), c.pAUnits())); 
+        food = new DB(c.food(), Model.food, new CalRec(c.editFood()));
+        pA = new DB(c.pA(), Model.pA, new CalRec(c.editPA()));
         weight = new DB(c.weight(), 
                         Model.weight, new WeightRec(c.editWeight()));
         
@@ -201,6 +200,11 @@ public class Fitness implements EntryPoint {
 
         void setReadOnly(boolean readonly) {
             tb.setReadOnly(readonly);
+        }
+
+        void setFocus(boolean hasFocus) {
+            tb.setFocus(hasFocus);
+            tb.setSelectionRange(0, getText().length());
         }
 
         void change(String text) {
@@ -545,19 +549,29 @@ public class Fitness implements EntryPoint {
         void update() {}
     }
 
+    static void setListBox(ListBox lb, String text) {
+        lb.setItemSelected(lb.getSelectedIndex(), false);
+        if (text != null) {
+            for (int i = 0; i < lb.getItemCount(); i++) {
+                if (lb.getItemText(i).equals(text)) {
+                    lb.setItemSelected(i, true);
+                    break;
+                }
+            }
+        }
+    }
+
+    static String getListBox(ListBox lb) {
+        return lb.getItemText(lb.getSelectedIndex());
+    }
+
     static class Totals extends Page implements ChangeListener {
         final Grid tg;
         final ListBox showFor = new ListBox();
         final ChangeListener dateCL = new ChangeListener() {
             public void onChange(Widget sender) {
                 // FIXME: validate that from <= to and today - from <= history
-                showFor.setItemSelected(showFor.getSelectedIndex(), false);
-                for (int i = 0; i < showFor.getItemCount(); i++) {
-                    if (showFor.getItemText(i).equals(c.range())) {
-                        showFor.setItemSelected(i, true);
-                        break;
-                    }
-                }
+                setListBox(showFor, c.range());
                 Totals.this.onChange(showFor);
             }
         };
@@ -613,7 +627,7 @@ public class Fitness implements EntryPoint {
 
         public void onChange(Widget sender) {
             ListBox lb = (ListBox)sender;
-            String showFor = lb.getItemText(lb.getSelectedIndex());
+            String showFor = getListBox(lb);
             boolean readonly = true;
             if      (showFor.equals(c.today())) {
                 fromDate.set();
@@ -654,6 +668,20 @@ public class Fitness implements EntryPoint {
         }
 
         void update() {
+            Date from = fromDate.get();
+            Date thru = thruDate.get();
+            if (DateInput.diff(DateInput.today(), from) > 
+                Model.Options.history - 1)
+                from = DateInput.previousDay(Model.Options.history - 1);
+            if (DateInput.diff(DateInput.today(), thru) > 
+                Model.Options.history - 1)
+                thru = DateInput.previousDay(Model.Options.history - 1);
+            if (DateInput.compare(DateInput.today(), thru) < 0)
+                thru = DateInput.today();
+            if (DateInput.compare(from, thru) > 0)
+                thru = from;
+            fromDate.set(from);
+            thruDate.set(thru);
             Model.Totals.update(fromDate.get(), thruDate.get());
             tg.setText(0, 1, Model.Totals.caloriesIn);
             tg.setText(1, 1, Model.Totals.pACalories);
@@ -820,7 +848,7 @@ public class Fitness implements EntryPoint {
         private final ListBox unit = new ListBox();
         private final DoubleInput calPerUnit = new DoubleInput(null, null);
 
-        CalRec(String title, String[] units) {
+        CalRec(String title) {
             super(title);
             g.resizeRows(5);
 
@@ -839,9 +867,9 @@ public class Fitness implements EntryPoint {
                     if (index < 0)
                         return;
                     desc.setText(text.substring(0, index));
-                    desc.setFocus(false);
-                    quantity.change(text.substring(index + 1));
+                    setListBox(unit, text.substring(index + 1));
                     calPerUnit.change(cpu);
+                    quantity.setFocus(true);
 
                 }
             });
@@ -850,28 +878,33 @@ public class Fitness implements EntryPoint {
             g.setWidget(2, 1, quantity);
 
             g.setText(3, 0, c.unit());
-            for (int i = 0; i < units.length; i++) {
-                unit.addItem(units[i]);
-            }
             g.setWidget(3, 1, unit);
 
             g.setText(4, 0, c.calPerUnit());
             g.setWidget(4, 1, calPerUnit);
         }
 
+        void setModelDB(Model.DB mdb) {
+            super.setModelDB(mdb);
+            for (int i = 0; i < mdb.units.length; i++) {
+                unit.addItem(mdb.units[i]);
+            }
+        }
+
         void accept() {
             if (!date.isValid() || !quantity.isValid() || !calPerUnit.isValid())
                 return;
             Model.CalRec mcr = 
-                new Model.CalRec(date.get(), desc.getText(), 
-                                 quantity.get(), calPerUnit.get());
+                new Model.CalRec(date.get(), desc.getText(), quantity.get(), 
+                                 getListBox(unit), calPerUnit.get());
             apply(mcr);
         }
 
         void dismiss() {
             desc.setText("");
             quantity.set(0);
-            // FIXME: reset unit
+            setListBox(unit, null);
+            unit.setItemSelected(0, true);
             calPerUnit.set(0);
             super.dismiss();
         }
@@ -881,7 +914,7 @@ public class Fitness implements EntryPoint {
             Model.CalRec mcr = (Model.CalRec)mdb.get(row);
             desc.setText(mcr.desc);
             quantity.change(mcr.quantity);
-            //FIXME: set unit (need to save it first in the model)
+            setListBox(unit, mcr.unit);
             calPerUnit.change(mcr.calPerUnit);
         }
 
@@ -891,6 +924,7 @@ public class Fitness implements EntryPoint {
             mwso.clear();
             mwso.addAll(mdb.suggest());
             super.show(isNew);
+            desc.setFocus(true);
         }
     }
 
@@ -1088,19 +1122,22 @@ public class Fitness implements EntryPoint {
         static class CalRec extends Record {
             final String desc;
             final String quantity;
+            final String unit;
             final String calPerUnit;
             final double calories;
             final String caloriesStr;
             final String suggest;
 
-            CalRec(Date date, String desc, double quantity, double calPerUnit) {
+            CalRec(Date date, String desc, double quantity, 
+                   String unit, double calPerUnit) {
                 super(date);
                 this.desc = desc;
                 this.quantity = d2s(quantity);
+                this.unit = unit;
                 this.calPerUnit = d2s(calPerUnit);
                 this.calories = quantity * calPerUnit;
                 this.caloriesStr = d2s(calories);
-                this.suggest = desc + " " + quantity + " " + calPerUnit;
+                this.suggest = desc + " " + unit + " " + calPerUnit;
             }
 
             String getField(int index) {
@@ -1132,9 +1169,11 @@ public class Fitness implements EntryPoint {
         static class DB implements Comparator {
             private final ArrayList al = new ArrayList();
             final int nCol;
+            final String[] units;
 
-            DB(int nCol) {
+            DB(int nCol, String[] units) {
                 this.nCol = nCol;
+                this.units = units;
             }
 
             int size() {return al.size();}
@@ -1264,22 +1303,24 @@ public class Fitness implements EntryPoint {
             }
         }
 
+        final static String[] foodUnits = c.foodUnits();
+        final static String[] pAUnits = c.pAUnits();
 
-        final static DB food = new DB(3);
-        final static DB pA = new DB(3);
-        final static DB weight = new DB(2);
+        final static DB food = new DB(3, foodUnits);
+        final static DB pA = new DB(3, pAUnits);
+        final static DB weight = new DB(2, null);
 
         // Testing data
         static {
             Options.metabolism = 11.0;
             Options.goalWeight = 77.0;
 
-            food.add(new CalRec(DateInput.today(), "pasta", 14.0, 20.0));
-            food.add(new CalRec(DateInput.previousDay(50), "pasta", 18.0, 20.0));
-            food.add(new CalRec(DateInput.previousDay(65), "bread", 8.0, 20.0));
-            food.add(new CalRec(DateInput.previousDay(95), "pasta", 28.0, 20.0));
+            food.add(new CalRec(DateInput.today(), "pasta", 14.0, foodUnits[4], 20.0));
+            food.add(new CalRec(DateInput.previousDay(50), "pasta", 18.0, foodUnits[4], 20.0));
+            food.add(new CalRec(DateInput.previousDay(65), "bread", 8.0, foodUnits[0], 20.0));
+            food.add(new CalRec(DateInput.previousDay(95), "pasta", 28.0, foodUnits[4], 20.0));
 
-            pA.add(new CalRec(DateInput.today(), "walking", 0.5, 300.0));
+            pA.add(new CalRec(DateInput.today(), "walking", 0.5, pAUnits[0], 300.0));
 
             weight.add(new WeightRec(DateInput.previousDay(50), 90.0));
             weight.add(new WeightRec(DateInput.previousDay(34), 87.0));
