@@ -570,7 +570,6 @@ public class Fitness implements EntryPoint {
         final ListBox showFor = new ListBox();
         final ChangeListener dateCL = new ChangeListener() {
             public void onChange(Widget sender) {
-                // FIXME: validate that from <= to and today - from <= history
                 setListBox(showFor, c.range());
                 Totals.this.onChange(showFor);
             }
@@ -896,7 +895,8 @@ public class Fitness implements EntryPoint {
                 return;
             Model.CalRec mcr = 
                 new Model.CalRec(date.get(), desc.getText(), quantity.get(), 
-                                 getListBox(unit), calPerUnit.get());
+                                 getListBox(unit), calPerUnit.get(), 
+                                 mdb.suggest());
             apply(mcr);
         }
 
@@ -1126,10 +1126,9 @@ public class Fitness implements EntryPoint {
             final String calPerUnit;
             final double calories;
             final String caloriesStr;
-            final String suggest;
 
             CalRec(Date date, String desc, double quantity, 
-                   String unit, double calPerUnit) {
+                   String unit, double calPerUnit, Collection suggest) {
                 super(date);
                 this.desc = desc;
                 this.quantity = d2s(quantity);
@@ -1137,7 +1136,7 @@ public class Fitness implements EntryPoint {
                 this.calPerUnit = d2s(calPerUnit);
                 this.calories = quantity * calPerUnit;
                 this.caloriesStr = d2s(calories);
-                this.suggest = desc + " " + unit + " " + calPerUnit;
+                suggest.add(desc + " " + unit + " " + calPerUnit);
             }
 
             String getField(int index) {
@@ -1170,10 +1169,12 @@ public class Fitness implements EntryPoint {
             private final ArrayList al = new ArrayList();
             final int nCol;
             final String[] units;
+            final Collection suggest;
 
-            DB(int nCol, String[] units) {
+            DB(int nCol, String[] units, Collection suggest) {
                 this.nCol = nCol;
                 this.units = units;
+                this.suggest = suggest;
             }
 
             int size() {return al.size();}
@@ -1233,11 +1234,7 @@ public class Fitness implements EntryPoint {
             }
 
             Collection suggest() {
-                HashSet hs = new HashSet();
-                for (Iterator i = al.iterator(); i.hasNext();) {
-                    hs.add(((CalRec)i.next()).suggest);
-                }
-                return hs;
+                return suggest;
             }
 
             Iterator range() {
@@ -1306,21 +1303,24 @@ public class Fitness implements EntryPoint {
         final static String[] foodUnits = c.foodUnits();
         final static String[] pAUnits = c.pAUnits();
 
-        final static DB food = new DB(3, foodUnits);
-        final static DB pA = new DB(3, pAUnits);
-        final static DB weight = new DB(2, null);
+        final static Collection foodSuggest = new HashSet();
+        final static Collection pASuggest = new HashSet();
+
+        final static DB food = new DB(3, foodUnits, foodSuggest);
+        final static DB pA = new DB(3, pAUnits, pASuggest);
+        final static DB weight = new DB(2, null, null);
 
         // Testing data
         static {
             Options.metabolism = 11.0;
             Options.goalWeight = 77.0;
 
-            food.add(new CalRec(DateInput.today(), "pasta", 14.0, foodUnits[4], 20.0));
-            food.add(new CalRec(DateInput.previousDay(50), "pasta", 18.0, foodUnits[4], 20.0));
-            food.add(new CalRec(DateInput.previousDay(65), "bread", 8.0, foodUnits[0], 20.0));
-            food.add(new CalRec(DateInput.previousDay(95), "pasta", 28.0, foodUnits[4], 20.0));
+            food.add(new CalRec(DateInput.today(), "pasta", 14.0, foodUnits[4], 20.0, foodSuggest));
+            food.add(new CalRec(DateInput.previousDay(50), "pasta", 18.0, foodUnits[4], 20.0, foodSuggest));
+            food.add(new CalRec(DateInput.previousDay(65), "bread", 8.0, foodUnits[0], 20.0, foodSuggest));
+            food.add(new CalRec(DateInput.previousDay(95), "pasta", 28.0, foodUnits[4], 20.0, foodSuggest));
 
-            pA.add(new CalRec(DateInput.today(), "walking", 0.5, pAUnits[0], 300.0));
+            pA.add(new CalRec(DateInput.today(), "walking", 0.5, pAUnits[0], 300.0, pASuggest));
 
             weight.add(new WeightRec(DateInput.previousDay(50), 90.0));
             weight.add(new WeightRec(DateInput.previousDay(34), 87.0));
