@@ -61,6 +61,7 @@ import com.google.gwt.user.client.ui.RootPanel;
 public class Fitness implements EntryPoint {
 
     static Constants c = (Constants)GWT.create(Constants.class);
+    static Messages m = (Messages)GWT.create(Messages.class);
     static Main main;
     static Totals totals;
     static DB food;
@@ -69,7 +70,7 @@ public class Fitness implements EntryPoint {
     static Options options;
     
     static {
-        log("Starting...");
+        log(m.starting());
     }
 
     public void onModuleLoad() {
@@ -154,11 +155,13 @@ public class Fitness implements EntryPoint {
     static class Input extends Composite 
                     implements ChangeListener, ClickListener {
         private final TextBox tb = new TextBox();
+        private final String name;
         private final ChangeListener changeL;
         private ClickListener clickL = null;
         private boolean isValid = true;
 
-        protected Input(String text, ChangeListener changeL) {
+        protected Input(String name, String text, ChangeListener changeL) {
+            this.name = name;
             this.changeL = changeL;
             tb.addChangeListener(this);
             tb.addClickListener(this);
@@ -173,6 +176,10 @@ public class Fitness implements EntryPoint {
 
         protected void setVisibleLength(int len) {
             tb.setVisibleLength(len);
+        }
+
+        protected String getName() {
+            return name;
         }
 
         protected String getText() {
@@ -228,6 +235,10 @@ public class Fitness implements EntryPoint {
         }
 
         protected boolean validate() {return true;}
+
+        protected void badInput() {
+            log(m.badInput(getName(), getText()));
+        }
     }
 
     static class DateInput extends Input {
@@ -239,13 +250,13 @@ public class Fitness implements EntryPoint {
         private Date date;
         private final Dialog dialog = new Dialog(this);
 
-        DateInput(String text, ChangeListener cl) {
-            super(text, cl);
+        DateInput(String name, String text, ChangeListener cl) {
+            super(name, text, cl);
             setVisibleLength(12);
         }
 
-        DateInput(ChangeListener cl) {
-            this(null, cl);
+        DateInput(String name, ChangeListener cl) {
+            this(name, null, cl);
             set(today());
         }
 
@@ -257,7 +268,7 @@ public class Fitness implements EntryPoint {
                 return true;
             }
             catch (IllegalArgumentException ile) {
-                log(c.badDate()+": '"+getText()+"'");
+                badInput();
             }
             return false;
         }
@@ -446,14 +457,14 @@ public class Fitness implements EntryPoint {
             NumberFormat.getFormat("#####0.0#");
         private double d;
 
-        DoubleInput(String text, ChangeListener cl) {
-            super(text, cl);
+        DoubleInput(String name, String text, ChangeListener cl) {
+            super(name, text, cl);
             if (text == null)
                 set(0);
         }
 
-        DoubleInput(double d, ChangeListener cl) {
-            this(format(d), cl);
+        DoubleInput(String name, double d, ChangeListener cl) {
+            this(name, format(d), cl);
         }
 
         protected boolean validate() {
@@ -462,7 +473,7 @@ public class Fitness implements EntryPoint {
                 return true;
             }
             catch (NumberFormatException nfe) {
-                log(c.badDouble()+": '"+getText()+"'");
+                badInput();
             }
             return false;
         }
@@ -490,14 +501,14 @@ public class Fitness implements EntryPoint {
         private final static NumberFormat format = NumberFormat.getFormat("#");
         private int i;
 
-        IntegerInput(String text, ChangeListener cl) {
-            super(text, cl);
+        IntegerInput(String name, String text, ChangeListener cl) {
+            super(name, text, cl);
             if (text == null)
                 set(0);
         }
 
-        IntegerInput(int i, ChangeListener cl) {
-            this(format(i), cl);
+        IntegerInput(String name, int i, ChangeListener cl) {
+            this(name, format(i), cl);
         }
 
         protected boolean validate() {
@@ -508,7 +519,7 @@ public class Fitness implements EntryPoint {
                 return true;
             }
             catch (NumberFormatException nfe) {
-                log(c.badInteger()+": '"+getText()+"'");
+                badInput();
             }
             return false;
         }
@@ -590,8 +601,8 @@ public class Fitness implements EntryPoint {
                 Totals.this.onChange(showFor);
             }
         };
-        final DateInput fromDate = new DateInput(dateCL);
-        final DateInput thruDate = new DateInput(dateCL);
+        final DateInput fromDate = new DateInput(c.fromDate(), dateCL);
+        final DateInput thruDate = new DateInput(c.thruDate(), dateCL);
 
         Totals() {
             super(c.totals());
@@ -793,7 +804,7 @@ public class Fitness implements EntryPoint {
 
     static class Record extends Dialog {
         protected final Grid g = new Grid(2, 2);
-        protected final DateInput date = new DateInput(null);
+        protected final DateInput date = new DateInput(c.date(), null);
         protected DB db;
         protected Model.DB mdb;
         protected int row = -1;
@@ -859,9 +870,11 @@ public class Fitness implements EntryPoint {
 
     static class CalRec extends Record {
         private final SuggestBox desc = new SuggestBox();
-        private final DoubleInput quantity = new DoubleInput(0, null);
+        private final DoubleInput quantity = 
+            new DoubleInput(c.quantity(), 0, null);
         private final ListBox unit = new ListBox();
-        private final DoubleInput calPerUnit = new DoubleInput(0, null);
+        private final DoubleInput calPerUnit = 
+            new DoubleInput(c.calPerUnit(), 0, null);
 
         CalRec(String title) {
             super(title);
@@ -945,7 +958,8 @@ public class Fitness implements EntryPoint {
     }
 
     static class WeightRec extends Record {
-        private final DoubleInput weight = new DoubleInput(0, null);
+        private final DoubleInput weight = 
+            new DoubleInput(c.weightRec(), 0, null);
 
         WeightRec(String title) {
             super(title);
@@ -970,6 +984,11 @@ public class Fitness implements EntryPoint {
             super.init(row);
             weight.change(((Model.WeightRec)mdb.get(row)).getField(1));
         }
+
+        void show(boolean isNew) {
+            super.show(isNew);
+            weight.setFocus(true);
+        }
     }
 
     static class Options extends Dialog {
@@ -988,11 +1007,13 @@ public class Fitness implements EntryPoint {
             Grid g = new Grid(6, 2);
 
             g.setText(0, 0, c.metabolismOpt());
-            metabolism = new DoubleInput(Model.Options.metabolism, null);
+            metabolism = new DoubleInput(c.metabolismOpt(), 
+                                         Model.Options.metabolism, null);
             g.setWidget(0, 1, metabolism);
 
             g.setText(1, 0, c.goalWeight());
-            goalWeight = new DoubleInput(Model.Options.goalWeight, null);
+            goalWeight = new DoubleInput(c.goalWeight(), 
+                                         Model.Options.goalWeight, null);
             g.setWidget(1, 1, goalWeight);
 
             g.setText(2, 0, c.weightOpt());
@@ -1006,7 +1027,8 @@ public class Fitness implements EntryPoint {
             g.setWidget(2, 1, p);
 
             g.setText(3, 0, c.historyDays());
-            history = new IntegerInput(Model.Options.history, null);
+            history = new IntegerInput(c.historyDays(), 
+                                       Model.Options.history, null);
             g.setWidget(3, 1, history);
 
             CheckBox cb = new CheckBox(c.console());
@@ -1076,12 +1098,15 @@ public class Fitness implements EntryPoint {
                 }
                 int daysInRange = DateInput.diff(thruDate, fromDate) + 1;
                 Totals.daysInRange = IntegerInput.format(daysInRange);
-                Totals.caloriesIn = DoubleInput.format(caloriesIn / daysInRange);
-                Totals.pACalories = DoubleInput.format(pACalories / daysInRange);
+                Totals.caloriesIn = 
+                    DoubleInput.format(caloriesIn / daysInRange);
+                Totals.pACalories = 
+                    DoubleInput.format(pACalories / daysInRange);
                 double metabolism = Options.metabolism *
                     (weight.size() > 0 ? ((WeightRec)weight.last()).weight : 0);
                 Totals.metabolism = DoubleInput.format(metabolism);
-                netCalories = DoubleInput.format((caloriesIn - pACalories - metabolism));
+                netCalories = 
+                    DoubleInput.format(caloriesIn - pACalories - metabolism);
                 double behavioralWeight = (caloriesIn - pACalories) / 
                     Options.metabolism / daysInRange;
                 if (Options.weightIsKilograms)
@@ -1173,8 +1198,9 @@ public class Fitness implements EntryPoint {
 
             String getField(int index) {
                 if (index == 1) {
-                    return DoubleInput.format(weight / (Options.weightIsKilograms ? 
-                                         POUNDS_PER_KILO : 1));
+                    return DoubleInput.format(weight / 
+                                              (Options.weightIsKilograms ? 
+                                               POUNDS_PER_KILO : 1));
                 }
                 return super.getField(index);
             }
@@ -1330,12 +1356,17 @@ public class Fitness implements EntryPoint {
             Options.metabolism = 11.0;
             Options.goalWeight = 77.0;
 
-            food.add(new CalRec(DateInput.today(), "pasta", 14.0, foodUnits[4], 20.0, foodSuggest));
-            food.add(new CalRec(DateInput.previousDay(50), "pasta", 18.0, foodUnits[4], 20.0, foodSuggest));
-            food.add(new CalRec(DateInput.previousDay(65), "bread", 8.0, foodUnits[0], 20.0, foodSuggest));
-            food.add(new CalRec(DateInput.previousDay(95), "pasta", 28.0, foodUnits[4], 20.0, foodSuggest));
+            food.add(new CalRec(DateInput.today(), "pasta", 14.0, 
+                                foodUnits[4], 20.0, foodSuggest));
+            food.add(new CalRec(DateInput.previousDay(50), "pasta", 18.0, 
+                                foodUnits[4], 20.0, foodSuggest));
+            food.add(new CalRec(DateInput.previousDay(65), "bread", 8.0, 
+                                foodUnits[0], 20.0, foodSuggest));
+            food.add(new CalRec(DateInput.previousDay(95), "pasta", 28.0, 
+                                foodUnits[4], 20.0, foodSuggest));
 
-            pA.add(new CalRec(DateInput.today(), "walking", 0.5, pAUnits[0], 300.0, pASuggest));
+            pA.add(new CalRec(DateInput.today(), "walking", 0.5, 
+                              pAUnits[0], 300.0, pASuggest));
 
             weight.add(new WeightRec(DateInput.previousDay(50), 90.0));
             weight.add(new WeightRec(DateInput.previousDay(34), 87.0));

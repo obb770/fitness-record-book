@@ -25,7 +25,9 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     String thisMonth();
     String allData();
     String range();
+    String fromDate();
     String thru();
+    String thruDate();
     String caloriesIn();
     String pACalories();
     String metabolism();
@@ -64,9 +66,6 @@ public interface Constants extends com.google.gwt.i18n.client.Constants {
     String weightRec();
     String del();
 
-    String badDate();
-    String badDouble();
-    String badInteger();
     String console();
     String revision();
 
