@@ -29,6 +29,7 @@ import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
 
 import com.google.gwt.i18n.client.DateTimeFormat;
+import com.google.gwt.i18n.client.NumberFormat;
 
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.user.client.ui.Composite;
@@ -231,19 +232,19 @@ public class Fitness implements EntryPoint {
 
     static class DateInput extends Input {
         final static long DAY_IN_MILLIS = 24L * 60L * 60L * 1000L;
-        final static DateTimeFormat mformat =
+        private final static DateTimeFormat mformat =
             DateTimeFormat.getMediumDateFormat();
-        final static DateTimeFormat sformat = 
+        private final static DateTimeFormat sformat = 
             DateTimeFormat.getShortDateFormat();
         private Date date;
         private final Dialog dialog = new Dialog(this);
 
-        public DateInput(String text, ChangeListener cl) {
+        DateInput(String text, ChangeListener cl) {
             super(text, cl);
             setVisibleLength(12);
         }
 
-        public DateInput(ChangeListener cl) {
+        DateInput(ChangeListener cl) {
             this(null, cl);
             set(today());
         }
@@ -347,7 +348,7 @@ public class Fitness implements EntryPoint {
                             g.getCellFormatter().setStyleName(
                                 row, col, "gwt-DateInput-Dialog-anotherMonth");
                         }
-                        g.setText(row, col, String.valueOf(d + 1));
+                        g.setText(row, col, IntegerInput.format(d + 1));
                     }
                 }
                 for (int col = 0; col < 4; col++) {
@@ -440,28 +441,24 @@ public class Fitness implements EntryPoint {
 
     }
 
-    static String d2s(double d) {
-        long l = (long)(d * 100 + 0.5);
-        d = l / 100.0;
-        if (d >= 1e6)
-            return "999999.99";
-        if (d <= -1e6)
-            return "-999999.99";
-        return String.valueOf(d);
-    }
-
     static class DoubleInput extends Input {
+        private final static NumberFormat format = 
+            NumberFormat.getFormat("#####0.0#");
         private double d;
 
-        public DoubleInput(String text, ChangeListener cl) {
+        DoubleInput(String text, ChangeListener cl) {
             super(text, cl);
             if (text == null)
                 set(0);
         }
 
+        DoubleInput(double d, ChangeListener cl) {
+            this(format(d), cl);
+        }
+
         protected boolean validate() {
             try {
-                d = Double.parseDouble(getText());
+                d = format.parse(getText());
                 return true;
             }
             catch (NumberFormatException nfe) {
@@ -476,23 +473,38 @@ public class Fitness implements EntryPoint {
 
         void set(double d) {
             this.d = d;
-            setText(d2s(d));
+            setText(format(d));
             setValid(true);
+        }
+
+        static String format(double d) {
+            if (d >= 1e6)
+                d = 999999.99;
+            else if (d <= -1e6)
+                d = -999999.99;
+            return format.format(d);
         }
     }
 
     static class IntegerInput extends Input {
+        private final static NumberFormat format = NumberFormat.getFormat("#");
         private int i;
 
-        public IntegerInput(String text, ChangeListener cl) {
+        IntegerInput(String text, ChangeListener cl) {
             super(text, cl);
             if (text == null)
                 set(0);
         }
 
+        IntegerInput(int i, ChangeListener cl) {
+            this(format(i), cl);
+        }
+
         protected boolean validate() {
             try {
-                i = Integer.parseInt(getText());
+                double d = format.parse(getText());
+                if ((int)d != d)
+                    throw new NumberFormatException();
                 return true;
             }
             catch (NumberFormatException nfe) {
@@ -507,8 +519,12 @@ public class Fitness implements EntryPoint {
 
         void set(int i) {
             this.i = i;
-            setText(String.valueOf(i));
+            setText(format(i));
             setValid(true);
+        }
+
+        static String format(int i) {
+            return format.format(i);
         }
     }
 
@@ -843,9 +859,9 @@ public class Fitness implements EntryPoint {
 
     static class CalRec extends Record {
         private final SuggestBox desc = new SuggestBox();
-        private final DoubleInput quantity = new DoubleInput(null, null);
+        private final DoubleInput quantity = new DoubleInput(0, null);
         private final ListBox unit = new ListBox();
-        private final DoubleInput calPerUnit = new DoubleInput(null, null);
+        private final DoubleInput calPerUnit = new DoubleInput(0, null);
 
         CalRec(String title) {
             super(title);
@@ -929,7 +945,7 @@ public class Fitness implements EntryPoint {
     }
 
     static class WeightRec extends Record {
-        private final DoubleInput weight = new DoubleInput(null, null);
+        private final DoubleInput weight = new DoubleInput(0, null);
 
         WeightRec(String title) {
             super(title);
@@ -972,11 +988,11 @@ public class Fitness implements EntryPoint {
             Grid g = new Grid(6, 2);
 
             g.setText(0, 0, c.metabolismOpt());
-            metabolism = new DoubleInput(d2s(Model.Options.metabolism), null);
+            metabolism = new DoubleInput(Model.Options.metabolism, null);
             g.setWidget(0, 1, metabolism);
 
             g.setText(1, 0, c.goalWeight());
-            goalWeight = new DoubleInput(d2s(Model.Options.goalWeight), null);
+            goalWeight = new DoubleInput(Model.Options.goalWeight, null);
             g.setWidget(1, 1, goalWeight);
 
             g.setText(2, 0, c.weightOpt());
@@ -990,8 +1006,7 @@ public class Fitness implements EntryPoint {
             g.setWidget(2, 1, p);
 
             g.setText(3, 0, c.historyDays());
-            history = 
-                new IntegerInput(String.valueOf(Model.Options.history), null);
+            history = new IntegerInput(Model.Options.history, null);
             g.setWidget(3, 1, history);
 
             CheckBox cb = new CheckBox(c.console());
@@ -1060,23 +1075,23 @@ public class Fitness implements EntryPoint {
                     pACalories += cr.calories;
                 }
                 int daysInRange = DateInput.diff(thruDate, fromDate) + 1;
-                Totals.daysInRange = String.valueOf(daysInRange);
-                Totals.caloriesIn = d2s(caloriesIn / daysInRange);
-                Totals.pACalories = d2s(pACalories / daysInRange);
+                Totals.daysInRange = IntegerInput.format(daysInRange);
+                Totals.caloriesIn = DoubleInput.format(caloriesIn / daysInRange);
+                Totals.pACalories = DoubleInput.format(pACalories / daysInRange);
                 double metabolism = Options.metabolism *
                     (weight.size() > 0 ? ((WeightRec)weight.last()).weight : 0);
-                Totals.metabolism = d2s(metabolism);
-                netCalories = d2s((caloriesIn - pACalories - metabolism));
+                Totals.metabolism = DoubleInput.format(metabolism);
+                netCalories = DoubleInput.format((caloriesIn - pACalories - metabolism));
                 double behavioralWeight = (caloriesIn - pACalories) / 
                     Options.metabolism / daysInRange;
                 if (Options.weightIsKilograms)
                     behavioralWeight /= POUNDS_PER_KILO;
-                Totals.behavioralWeight = d2s(behavioralWeight);
+                Totals.behavioralWeight = DoubleInput.format(behavioralWeight);
                 double calsLeftToEat = Options.goalWeight * Options.metabolism;
                 if (Options.weightIsKilograms)
                     calsLeftToEat *= POUNDS_PER_KILO;
                 calsLeftToEat += (pACalories - caloriesIn) / daysInRange;
-                Totals.calsLeftToEat = d2s(calsLeftToEat);
+                Totals.calsLeftToEat = DoubleInput.format(calsLeftToEat);
             }
         }
 
@@ -1131,11 +1146,11 @@ public class Fitness implements EntryPoint {
                    String unit, double calPerUnit, Collection suggest) {
                 super(date);
                 this.desc = desc;
-                this.quantity = d2s(quantity);
+                this.quantity = DoubleInput.format(quantity);
                 this.unit = unit;
-                this.calPerUnit = d2s(calPerUnit);
+                this.calPerUnit = DoubleInput.format(calPerUnit);
                 this.calories = quantity * calPerUnit;
-                this.caloriesStr = d2s(calories);
+                this.caloriesStr = DoubleInput.format(calories);
                 suggest.add(desc + " " + unit + " " + calPerUnit);
             }
 
@@ -1158,7 +1173,7 @@ public class Fitness implements EntryPoint {
 
             String getField(int index) {
                 if (index == 1) {
-                    return d2s(weight / (Options.weightIsKilograms ? 
+                    return DoubleInput.format(weight / (Options.weightIsKilograms ? 
                                          POUNDS_PER_KILO : 1));
                 }
                 return super.getField(index);
