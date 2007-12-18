@@ -29,7 +29,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import gtk
 import hildon
+import time
 import datetime
+import csv
 # simulate data for debugging
 import random
 rand = random.Random()
@@ -108,17 +110,55 @@ class OptionsDialog(Dialog):
     """"Dialog box for editing options values."""
     labels = ["Metabolism (KCal/Kg/day)","Goal weight (Kg)","History (days)"]
     attributes = ["met","weight","history"]
+    types=[float,float,int]
     def __init__(self):
-        self.met=18.
-        self.weight=77.
-        self.history=30
+        try:
+            self.load()
+        except:
+            self.met=18.
+            self.weight=77.
+            self.history=30
+    def save(self):
+        f = open("fitness_options.csv","wb")
+        csv.writer(f).writerow([self.__getattribute__(attr) for attr in self.attributes])
+        f.close()
+    def load(self):
+        f = open("fitness_options.csv","rb")
+        r = csv.reader(f)
+        for row in r:
+            for i,value in enumerate(row):
+                value=self.types[i](value)
+                self.__setattr__(self.attributes[i],value)
+        f.close()
 
-class Date(datetime.date):
+class Date(object):
+    # repr and init must use same format
+    fmt='%d-%b-%y'
+    def __init__(self,year,month=None,day=None):
+        """Create using either a 3-tuplet or a string with the exact same
+	format used in repr"""
+        if isinstance(year,datetime.date):
+            self.dt=year
+        else:
+            if isinstance(year,str):
+                s=year
+                t=time.strptime(s,self.fmt)
+                year,month,day = t[0:3]
+            self.dt=datetime.date(year,month,day)
+        assert self.dt
+    def __repr__(self):
+        """ US string representation of date.
+	TODO: get local format from OS"""
+        return self.dt.strftime(self.fmt)        
     def __str__(self):
         """ US string representation of date.
 	TODO: get local format from OS"""
-        return "%d/%d/%d"%(self.month,self.day,self.year)
-
+        return self.dt.strftime('%m/%d/%y')
+    def __cmp__(self,other):
+        return cmp(self.dt,other.dt)
+    def __sub__(self,other):
+        return self.dt-other.dt
+    
 class DateObj(Dialog):
     """An object that contains information that is assigned to a specifice date.
     For example: Weight, food eating, Physical Activity.
@@ -126,8 +166,7 @@ class DateObj(Dialog):
     """
     def today(self):
         """ Pick a random date between 1/1/1998 and today """
-        dt=datetime.date.today()
-        self.date=Date(dt.year,dt.month,dt.day)
+        self.date=Date(datetime.date.today())
     def rand(self):
         """ Pick a random date between 1/1/1998 and today """
         dt=datetime.date.today()
@@ -161,7 +200,20 @@ class DateObj(Dialog):
         self.dialog.vbox.pack_start(button, False, False, 0)
         button.show()
     def __cmp__(self,other):
+        """Comparing two DateObj is done by comparing their dates. This is needed
+        in order to sort the list of objects which is held in DateObjList"""
         return cmp(self.date,other.date)
+    def save(self,w):
+        #f = open("fitness_options.csv","wb")
+        #w=csv.writer(f)
+        w.writerow([`self.date`]+[self.__getattribute__(attr) for attr in self.attributes])
+        #f.close()
+    def load(self,row):
+        types=[Date]+self.types
+        attrs=['date']+self.attributes
+        for i,value in enumerate(row):
+            value=types[i](value)
+            self.__setattr__(attrs[i],value)
 
 class DateObjList(object):
     """Managing objects that have a date field
@@ -170,17 +222,34 @@ class DateObjList(object):
     title="Date"
     objclass=DateObj
     column_names = ['Date']
-
+    fname="fitness_dates.csv"
+    def load(self):
+        f = open(self.fname,"rb")
+        r = csv.reader(f)
+        for row in r:
+            obj = self.objclass()
+            obj.load(row)
+            self.liststore.append([obj])
+        f.close()
+    def save(self):
+        f = open(self.fname,"wb")
+        w=csv.writer(f)
+        for row in self.liststore:
+            row[0].save(w)
+        f.close()
     def __init__(self):
         # When subclassing, override the tuple with appropriate method to
         # display the contnet of each column
         self.cell_data_funcs = (self.cell_date,) #Note that this must be a tuple
         self.liststore = gtk.ListStore(object)
         
-        for i in range(50):
-            obj = self.objclass()
-            obj.rand()
-            self.liststore.append([obj])
+        try:
+            self.load()
+        except:
+            for i in range(50):
+                obj = self.objclass()
+                obj.rand()
+                self.liststore.append([obj])
     def cell_date(self, column, cell, model, iter):
         """Extract the date string from each object in the list, and place it
 	in a GUI cell which is part of the Date column
@@ -274,6 +343,7 @@ class Weight(DateObj):
     """Single weight entry"""
     labels = ["Weight"]
     attributes = ["weight"]
+    types=[float]
     weight=0.
     def rand(self):
         DateObj.rand(self)
@@ -284,6 +354,7 @@ class WeightList(DateObjList):
     objclass=Weight
     title="Weight"
     column_names = ['Date', 'Weight']
+    fname="fitness_weights.csv"
 
     def __init__(self):
         DateObjList.__init__(self)
@@ -312,10 +383,13 @@ class Cal(DateObj):
     """Single cal entry"""
     labels = ["Desc","Quantity","Unit","Cal/Unit"]
     attributes = ["desc","quant","unit","calunit"]
+    types=[str,float,None,float]
     desc=""
     quant=0.
     unit=""
     calunit=0.
+    def cals(self):
+        return self.quant * self.calunit
 
 
 class CalList(DateObjList):
@@ -337,8 +411,15 @@ class CalList(DateObjList):
         """Compute the total calories from each object in the list, and place it
 	in a GUI cell which is part of the Cal column"""
         obj=model.get_value(iter, 0)
-        cell.set_property('text', '%.1f'%(obj.quant*obj.calunit))    
-
+        cell.set_property('text', '%.1f'%(obj.cals()))    
+    def cal_in_range(self,sdate,edate):
+        """ Return the sum of calories inside the date range"""
+        calsum=0.
+        for row in self.liststore:
+            obj=row[0]
+            if obj.date >= sdate and obj.date <= edate:
+                calsum += obj.cals()
+        return calsum
 class Combo(object):
     list=[]
     active=-1
@@ -361,7 +442,8 @@ class Combo(object):
 class PAUnit(Combo):
     list=["Item","Minute","Mile"]
 class PA(Cal):
-    unit=Combo()
+    unit=PAUnit()
+    types=[str,float,PAUnit,float]
     def rand(self):
         Cal.rand(self)        
         self.desc="running"
@@ -372,10 +454,12 @@ class PA(Cal):
 class PAList(CalList):
     objclass=PA
     title="PA"
-    
+    fname="fitness_pas.csv"
+
 class FoodUnit(Combo):
     list=['Item','Tsp','Tbsp','Cup','Ounce','Slice','Bowl']
 class Food(Cal):
+    types=[str,float,FoodUnit,float]    
     unit=FoodUnit()
     def rand(self):
         Cal.rand(self)
@@ -387,6 +471,7 @@ class Food(Cal):
 class FoodList(CalList):
     objclass=Food
     title="Food"
+    fname="fitness_foods.csv"
 
 class AboutDialog():
     def __init__(self,window):
@@ -414,7 +499,6 @@ class AboutDialog():
         dialog.destroy()
 
 class FitnessApp(hildon.Program):
-
     def dialog_callback(self, widget,data):
         if data==0:
             self.foodDialog.run(self.window)
@@ -453,21 +537,33 @@ class FitnessApp(hildon.Program):
         self.sbutton.set_label(str(self.sdate)) # date2string(self.sdate))
         self.ebutton.set_label(str(self.edate)) # date2string(self.edate))
         days=(self.edate-self.sdate).days+1
+        cal = self.foodDialog.cal_in_range(self.sdate,self.edate)
+        pa = self.paDialog.cal_in_range(self.sdate,self.edate)
         met=days*self.weightDialog.last_weight()*self.optionsDialog.met
-        net=met
+        net=met+pa-cal
         behav=net/days/self.optionsDialog.met
         left=days*self.optionsDialog.weight*self.optionsDialog.met-net
+        self.values[0].set_text('%.1f'%cal)
+        self.values[1].set_text('%.1f'%pa)
         self.values[2].set_text('%.1f'%met)
         self.values[3].set_text('%.1f'%net)
         self.values[4].set_text('%.1f'%behav)
         self.values[5].set_text(str(days))
         self.values[6].set_text('%.1f'%left)
+    def save(self):
+        self.optionsDialog.save()
+        self.foodDialog.save()
+        self.paDialog.save()
+        self.weightDialog.save()
     def menuitem_response(self, widget, data):
-        if data:
-            AboutDialog(self.window)
-        else:
+        if data==0:
             self.optionsDialog.run(self.window)
             self.draw()
+        elif data==1:
+            self.save()
+        else:
+            AboutDialog(self.window)
+            
     def today(self):
         t=datetime.date.today()
         self.sdate=Date(t.year,t.month,t.day)
@@ -495,7 +591,7 @@ class FitnessApp(hildon.Program):
 
         menu = gtk.Menu()
         c=0
-        for l in ["Options...","About..."]:
+        for l in ["Options...","Save","About..."]:
             menu_items = gtk.MenuItem(l)
             menu.append(menu_items)
             menu_items.connect("activate", self.menuitem_response, c)
