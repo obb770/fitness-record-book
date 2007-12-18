@@ -1,4 +1,16 @@
 #!/usr/bin/env python2.5
+# TODO AutoSave
+# TODO Name completing for entering Cal.run.desc save dictonaries in csv
+# TODO optimize button size for Nokia's screen
+# TODO package
+# TODO remove old records in DateObjList accoring to OptionsDialog.history
+# TODO add to OptionsDialog the folder location for CSV files
+# TODO DateObj.run.Cancel
+# TODO DateObj.run.Del
+# TODO validate date range
+# TODO mark the location of input errors in dialog
+# TODO localization
+
 # The below license appears in the About dialog-box
 license = """Fitness Record Book
 Copyright 2000-4,2007 Ehud (Udi) Ben-Reuven
