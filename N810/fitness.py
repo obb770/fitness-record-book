@@ -33,9 +33,13 @@ import time
 import datetime
 import csv
 # simulate data for debugging
-import random
-rand = random.Random()
+sim=False
+if sim:
+    import random
+    rand = random.Random()
 
+# All windows will have the same size
+SZ=(600,400)
 
 class Dialog(object):
     """"Dialog box for editing values. Assuming all values are float.
@@ -54,8 +58,7 @@ class Dialog(object):
                            gtk.STOCK_OK, gtk.RESPONSE_ACCEPT
                        ))
         self.dialog=dialog
-        sz = parent_window.get_size()
-        dialog.set_size_request(*sz)
+        dialog.set_size_request(*SZ)
 
     def run(self,parent_window):
         self.make_dialog(parent_window)
@@ -114,10 +117,12 @@ class OptionsDialog(Dialog):
     def __init__(self):
         try:
             self.load()
+            self.defined=True
         except:
             self.met=18.
             self.weight=77.
             self.history=30
+            self.defined=False
     def save(self):
         f = open("fitness_options.csv","wb")
         csv.writer(f).writerow([self.__getattribute__(attr) for attr in self.attributes])
@@ -165,7 +170,6 @@ class DateObj(Dialog):
     It is possible for multiple objects to have the same date
     """
     def today(self):
-        """ Pick a random date between 1/1/1998 and today """
         self.date=Date(datetime.date.today())
     def rand(self):
         """ Pick a random date between 1/1/1998 and today """
@@ -184,7 +188,7 @@ class DateObj(Dialog):
     def date_callback(self, widget):
         """Allow entrance of new date when the date button is pressed"""
         dt=self.date
-        dialog = hildon.CalendarPopup(self.dialog, dt.year, dt.month, dt.day)
+        dialog = hildon.CalendarPopup(self.dialog, dt.dt.year, dt.dt.month, dt.dt.day)
         dialog.run()
         dt1=dialog.get_date()
         dt=Date(dt1[0],dt1[1],dt1[2])
@@ -204,10 +208,7 @@ class DateObj(Dialog):
         in order to sort the list of objects which is held in DateObjList"""
         return cmp(self.date,other.date)
     def save(self,w):
-        #f = open("fitness_options.csv","wb")
-        #w=csv.writer(f)
         w.writerow([`self.date`]+[self.__getattribute__(attr) for attr in self.attributes])
-        #f.close()
     def load(self,row):
         types=[Date]+self.types
         attrs=['date']+self.attributes
@@ -246,10 +247,11 @@ class DateObjList(object):
         try:
             self.load()
         except:
-            for i in range(50):
-                obj = self.objclass()
-                obj.rand()
-                self.liststore.append([obj])
+            if sim:
+                for i in range(50):
+                    obj = self.objclass()
+                    obj.rand()
+                    self.liststore.append([obj])
     def cell_date(self, column, cell, model, iter):
         """Extract the date string from each object in the list, and place it
 	in a GUI cell which is part of the Date column
@@ -258,8 +260,7 @@ class DateObjList(object):
         cell.set_property('text', str(obj.date))
     def total_event(self,widget):
         """Return to the main window when the Total button is pressed"""
-        self.w.destroy()
-        return False
+        self.w.response(gtk.RESPONSE_OK)
     def delete_event(self, widget, event, data=None):
         """Return to main window when the window is closed"""
         return self.total_event(widget)
@@ -283,14 +284,12 @@ class DateObjList(object):
 	parent_window - the window from which this window was launched
 	"""
         self.parent_window=parent_window
-        win = gtk.Window(gtk.WINDOW_TOPLEVEL)
+        win=gtk.Dialog(self.title,parent_window,
+                  gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT |
+                  gtk.DIALOG_NO_SEPARATOR,
+                  )
         self.w=win
-        win.set_title(self.title)
-        sz = parent_window.get_size()
-        win.set_size_request(*sz)
-        win.connect("delete_event", self.delete_event)
-        win.vbox = gtk.VBox()
-        win.add(win.vbox)
+        win.set_size_request(*SZ)
 
         # create the TreeView
         sm = gtk.TreeModelSort(self.liststore)
@@ -322,6 +321,11 @@ class DateObjList(object):
         win.vbox.pack_start(win.hbox, False)
 
         win.show_all()
+        # start a recursive mainloop.
+        # the mainloop will end only when the Total button is pressedn
+        # so there is no need to check the response_id
+        win.run()
+        self.w.destroy()
     def edit(self, treeview, path, column):
         """Edit an entry when an item in the list is double clicked"""
         model = treeview.get_model()
@@ -369,9 +373,9 @@ class WeightList(DateObjList):
             if not maxobj or obj > maxobj:
                 maxobj = obj
         if maxobj:
-            print maxobj.weight
             return maxobj.weight
         else:
+            # TODO take value from goal weight
             return 81.
     def cell_weight(self, column, cell, model, iter):
         """Extract the weight string from each object in the list, and place it
@@ -480,8 +484,8 @@ class AboutDialog():
                           gtk.DIALOG_NO_SEPARATOR,
                           (gtk.STOCK_OK, gtk.RESPONSE_DELETE_EVENT)
                       )
-        sz=window.get_size()
-        dialog.set_size_request(*sz)
+        #sz=window.get_size()
+        dialog.set_size_request(*SZ)
 
 
         scrolled_window = gtk.ScrolledWindow()
@@ -506,7 +510,7 @@ class FitnessApp(hildon.Program):
             self.paDialog.run(self.window)
         else:
             self.weightDialog.run(self.window)
-
+        self.draw()
     def dtrange_callback(self, widget, data):
         if data==0:
             self.today()
@@ -521,7 +525,7 @@ class FitnessApp(hildon.Program):
         else:
             dt=self.edate
 
-        dialog = hildon.CalendarPopup (self.window, dt.year, dt.month, dt.day)
+        dialog = hildon.CalendarPopup (self.window, dt.dt.year, dt.dt.month, dt.dt.day)
         dialog.run()
         dt1=dialog.get_date()
         dt=Date(dt1[0],dt1[1],dt1[2])
@@ -542,7 +546,7 @@ class FitnessApp(hildon.Program):
         met=days*self.weightDialog.last_weight()*self.optionsDialog.met
         net=met+pa-cal
         behav=net/days/self.optionsDialog.met
-        left=days*self.optionsDialog.weight*self.optionsDialog.met-net
+        left=net-days*self.optionsDialog.weight*self.optionsDialog.met
         self.values[0].set_text('%.1f'%cal)
         self.values[1].set_text('%.1f'%pa)
         self.values[2].set_text('%.1f'%met)
@@ -585,6 +589,7 @@ class FitnessApp(hildon.Program):
         hildon.Program.__init__(self)
 
         self.window = hildon.Window()
+        self.window.set_size_request(*SZ)
         self.window.set_title("Fitness Record Book")
         self.window.connect("destroy", gtk.main_quit)
         self.add_window(self.window)
@@ -661,6 +666,8 @@ class FitnessApp(hildon.Program):
         self.foodDialog=FoodList()
 
         self.load()
+        if not self.optionsDialog.defined:
+            self.optionsDialog.run(self.window)
     def load(self):
         self.today()
         self.draw()

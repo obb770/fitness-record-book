@@ -1,34 +1,59 @@
 Fitness Record Book (python) 17-Dec-2007
 ========================================
 This is the Python/Gtk version of the fitness-record-book.
+The original version was designed for Palm and is described at
+http://udi.benreuven.com/diet/
+
 The program is optimized for usage on Nokia's Intenet Tablet (N800, N810)
-However it can be run on other python environments.
+running OS2008.
 
 Installation
 ============
 You have to agree to the license below before using this software.
 
-On N8xx
--------
-Install http://pymaemo.garage.maemo.org/
+OS2008
+------
+Install http://pymaemo.garage.maemo.org/installation.html
 copy fitness.py to your device and run it. (don't copy hildon.py)
 
-On other Python environments
-----------------------------
-Install pygtk
+other Python environments
+-------------------------
+Install PyGtk (http://www.pygtk.org/downloads.html)
 copy both fitness.py and hildon.py
 
 Usage
 =====
-Identical to http://udi.benreuven.com/diet/ with the following exceptions:
-* There is a menu option to store the application state to disk, otherwise all
-  the data you entered will be lost once you exit the program. The last stored
-  saved state is loaded when the application starts.
-* The application state is stored in several csv files that have the name
-  fitness_xxx.csv  these files are located in the directory from which you run
-  the application. You can copy these files to your PC for backup and even edit
-  them with excel.
-* some GUI features in the original version that were not useful were removed.
+Identical to the original Palm version described at
+http://udi.benreuven.com/diet/
+with the following exceptions:
+
+Save menu
+---------
+There is a menu option to store the application state to disk, otherwise all
+the data you entered will be lost once you exit the program. The last stored
+saved state is loaded whenever the application starts.
+
+CSV files
+---------
+The application state is stored in several CSV files that have the name
+fitness_xxx.csv  these files are located in the directory from which you run
+the application.
+
+You can copy these files to your PC for backup and even edit
+them with Excel.
+
+Each row in each CSV file holds the content of one dialog box in the applications
+the columns in each row from left to right are the same as the entry fields
+in the dialog box from top to bottom.
+
+The csv files are:
+* fitness_options - stores the content of the Options dialog box. There is just
+  one options dialog box and there is just one line in this CSV file.
+* fitness_weight,fitness_pas,fitness_foods - stores the weight, PA, food records.
+
+Removed features
+----------------
+Some GUI features in the original palm version that were not useful were removed.
 
 License
 =======
