@@ -39,7 +39,10 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import gtk
-import hildon
+try:
+    import hildon
+except:
+    from hildonstub import hildon
 
 # the application main window launches lists which in tern launches
 # dialogs which in turn are made from items

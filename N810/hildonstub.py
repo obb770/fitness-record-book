@@ -1,4 +1,4 @@
-# Hildon Stab
+# Hildon Stub
 import pygtk
 pygtk.require('2.0')
 import gtk, pango
@@ -296,3 +296,15 @@ class Window(gtk.Window):
         root_menu.set_submenu(menu)
         self.menu_bar.append(root_menu)
         self.mwindow.show()
+
+
+class HildonStub:
+    def __init__(self):
+        self.Program = Program
+        self.HildonWidget = HildonWidget
+        self.CalendarPopup = CalendarPopup
+        self.Window = Window
+
+
+hildon = HildonStub()
+
