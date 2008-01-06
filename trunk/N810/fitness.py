@@ -172,7 +172,7 @@ class FitnessApp(hildon.Program):
         r=0
 
         c=0
-        for l in ["Today","Yesturday","This Week"]:
+        for l in ["Today","Yesterday","This Week"]:
             button = gtk.Button(l)
             button.connect("clicked", self.dtrange_callback,c)
             table.attach(button,c,c+1,r,r+2)
