@@ -1,5 +1,4 @@
 #!/usr/bin/env python2.5
-# TODO AutoSave
 # TODO optimize button size for Nokia's screen
 # TODO package
 # TODO remove old records in DateObjList accoring to OptionsDialog.history
