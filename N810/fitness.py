@@ -40,6 +40,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
 import gtk
 try:
+    import osso
+except:
+    from ossostub import osso
+try:
     import hildon
 except:
     from hildonstub import hildon
@@ -117,7 +121,7 @@ class FitnessApp(hildon.Program):
         self.values[4].set_text('%.1f'%behav)
         self.values[5].set_text(str(days))
         self.values[6].set_text('%.1f'%left)
-    def save(self):
+    def save(self, user_data=None):
         self.optionsDialog.save()
         self.foodDialog.save()
         self.paDialog.save()
@@ -127,7 +131,7 @@ class FitnessApp(hildon.Program):
             self.optionsDialog.run(self.window)
             self.draw()
         elif data==1:
-            self.save()
+            self.force_save()
         else:
             AboutDialog()
 
@@ -145,16 +149,38 @@ class FitnessApp(hildon.Program):
         self.edate=Date(t.year,t.month,t.day)
         t-=datetime.timedelta(t.weekday())
         self.sdate=Date(t.year,t.month,t.day)
+
+    # Called whenever the application is sent to background or
+    # get to foreground. If it goes to background, calls
+    # 
+    def topmost_change(self, arg, user_data):
+        if self.get_is_topmost():
+            self.set_can_hibernate(False)
+        else:
+            self.autosave.force_autosave()
+            self.set_can_hibernate(True)
+    def updateobj(self,obj):
+        self.autosave.userdata_changed()
+    def force_save(self):
+        self.autosave.force_autosave()
+    def quit(self, evt):
+        self.force_save()
+        gtk.main_quit()
     def __init__(self):
         self.sdate=Date(2007,12,1)
         self.edate=Date(2007,12,1)
 
         hildon.Program.__init__(self)
-
+        self.context = osso.Context("fitness", "0.0.1", False)
+        self.autosave = osso.Autosave(self.context)
+        # because of bug in osso.Autosave you must pass a call-back data
+        self.autosave.set_autosave_callback(self.save,1)
+        self.connect("notify::is-topmost", self.topmost_change)
+        
         self.window = hildon.Window()
         self.window.set_size_request(*SZ)
         self.window.set_title("Fitness Record Book")
-        self.window.connect("destroy", gtk.main_quit)
+        self.window.connect("destroy", self.quit)
         self.add_window(self.window)
 
         menu = gtk.Menu()
@@ -224,12 +250,12 @@ class FitnessApp(hildon.Program):
         table.show()
         self.window.show()
         self.optionsDialog = OptionsDialog(self)
-        self.weightDialog = WeightList()
-        self.paDialog=PAList()
-        self.foodDialog=FoodList()
+        self.weightDialog = WeightList(self)
+        self.paDialog=PAList(self)
+        self.foodDialog=FoodList(self)
 
         self.load()
-        if not self.optionsDialog.defined:
+        if self.optionsDialog.is_new:
             AboutDialog()
             self.optionsDialog.run(self.window)
     def load(self):

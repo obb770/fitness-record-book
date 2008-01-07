@@ -4,13 +4,15 @@ pygtk.require('2.0')
 import gtk, pango
 import time
 
-class Program:
+class Program(object):
     def __init__(self):
         pass
     def add_window(self,window):
         pass
+    def connect(self,event,cb):
+        pass
 
-class HildonWidget():
+class HildonWidget(object):
     def run(self):
         pass
 
@@ -298,7 +300,7 @@ class Window(gtk.Window):
         self.mwindow.show()
 
 
-class HildonStub:
+class HildonStub(object):
     def __init__(self):
         self.Program = Program
         self.HildonWidget = HildonWidget
