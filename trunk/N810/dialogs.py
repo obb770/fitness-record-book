@@ -21,6 +21,9 @@ class Dialog(object):
     types = []
     def __init__(self,parentDialog):
         self.parentDialog=parentDialog
+        self.is_new = False
+    def updateobj(self,obj):
+        self.parentDialog.updateobj(self)
     def make_dialog(self,parent_window,OKCancel=True):
         """Make the edit dialog box without running it. This can be extended
         by sub class
@@ -55,8 +58,8 @@ class Dialog(object):
     def cancel_event(self, widget, data=None):
         self.dialog.destroy()
     def ok_event(self, widget, data=None):
+        temp_value=[]
         try:
-            temp_value=[]
             for i,attr in enumerate(self.attributes):
                 # find the class of the attribue
                 cls=self.types[i]
@@ -65,14 +68,14 @@ class Dialog(object):
                 # this could generate an exception on a bad entry
                 value=cls(entry.get_text())
                 temp_value.append(value)
-            for attr,value in zip(self.attributes,temp_value):
-                self.__setattr__(attr,value)
-            self.dialog.destroy()
-            self.parentDialog.updateobj(self)
         except:
             # If there were problems, dont destroy the window and the user will
             # have to continue and play with it.
             pass
+        for attr,value in zip(self.attributes,temp_value):
+            self.__setattr__(attr,value)
+        self.dialog.destroy()
+        self.updateobj(self)        
     def run(self,parent_window):
         self.make_dialog(parent_window)
 
@@ -95,6 +98,7 @@ class Dialog(object):
         self.dialog.show()
 
     def newvalues(self):
+        self.is_new=True
         for i,value in enumerate(self.values):
             self.__setattr__(self.attributes[i],
                              self.types[i](value))
@@ -108,10 +112,8 @@ class OptionsDialog(Dialog):
         Dialog.__init__(self,parentDialog)
         try:
             self.load()
-            self.defined=True
         except IOError:
             self.newvalues()
-            self.defined=True
     def save(self):
         f = open("fitness_options.csv","wb")
         csv.writer(f).writerow([self.__getattribute__(attr) for attr in self.attributes])

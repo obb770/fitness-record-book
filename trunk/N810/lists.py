@@ -14,7 +14,9 @@ class DateObjList(Dialog):
     column_names = ['Date']
     fname="fitness_dates.csv"
     def updateobj(self,obj):
-        pass
+        if obj.is_new:
+            self.liststore.append([obj])
+        Dialog.updateobj(self,obj)
     def load(self):
         f = open(self.fname,"rb")
         r = csv.reader(f)
@@ -29,7 +31,8 @@ class DateObjList(Dialog):
         for row in self.liststore:
             row[0].save(w)
         f.close()
-    def __init__(self):
+    def __init__(self,parentDialog):
+        self.parentDialog=parentDialog        
         # When subclassing, override the tuple with appropriate method to
         # display the contnet of each column
         self.cell_data_funcs = (self.cell_date,) #Note that this must be a tuple
@@ -50,7 +53,6 @@ class DateObjList(Dialog):
         obj = self.objclass(self)
         obj.newvalues()
         self.edit_obj(obj)
-        self.liststore.append([obj])
     def date_sort(self, model, iter1, iter2):
         """Sort method used to keep the objects in the list sorted in descending
 	order """
@@ -122,8 +124,8 @@ class WeightList(DateObjList):
     column_names = ['Date', 'Weight']
     fname="fitness_weights.csv"
 
-    def __init__(self):
-        DateObjList.__init__(self)
+    def __init__(self,parentDialog):
+        DateObjList.__init__(self,parentDialog)
         # This should come after the super's init because it overrides it.
         self.cell_data_funcs = (self.cell_date, self.cell_weight)
     def last_weight(self):
@@ -151,20 +153,22 @@ class CalList(DateObjList):
     title="Cal"
     column_names = ['Date', 'Desc', 'Cal']
 
-    def __init__(self):
+    def __init__(self,parentDialog):
         # for all objects' names (desc item) keep the latest object
         self.dict={}
         # and build a liststore of these names
         self.dictlist=gtk.ListStore(str)
-        DateObjList.__init__(self)
+        DateObjList.__init__(self,parentDialog)
         # This should come after the super's init because it overrides it.
         self.cell_data_funcs = (self.cell_date, self.cell_desc, self.cell_cal)
-    def updateobj(self,obj):
+    def loadobjname(self,obj):
         name=str(obj.desc)
-        print name
         if name not in self.dict:
             self.dictlist.append([name])
         self.dict[name]=obj
+    def updateobj(self,obj):
+        self.loadobjname(obj)
+        DateObjList.updateobj(self,obj)
     def cell_desc(self, column, cell, model, iter):
         """Extract the description string from each object in the list,
         and place it in a GUI cell which is part of the Desc column"""
@@ -194,7 +198,7 @@ class CalList(DateObjList):
             print row
             obj = self.objclass(self)
             obj.load(row)
-            self.updateobj(obj)
+            self.loadobjname(obj)
         f.close()
     def save(self):
         DateObjList.save(self)
