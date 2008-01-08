@@ -8,7 +8,7 @@ class Autosave(object):
     def __init__(self,context):
         self.context=context
         self.cb=None
-    def set_autosave_callback(self,cb):
+    def set_autosave_callback(self,cb,data=None):
         self.cb=cb
     def userdata_changed(self):
         self.force_autosave()
