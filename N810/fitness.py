@@ -11,7 +11,9 @@
 
 # The below license appears in the About dialog-box
 license = """Fitness Record Book
-Copyright 2000-4,2007 Ehud (Udi) Ben-Reuven
+2007 Ehud (Udi) Ben-Reuven & Ofer Barkai
+Derived from:
+2000-4 Ehud (Udi) Ben-Reuven
 Derived from:
 Copyright 1997 Eric W. Sink
 
@@ -62,8 +64,8 @@ class AboutDialog(gtk.AboutDialog):
         self.set_version("0.1")
         self.set_website("http://benreuven.com/udiwiki/index.php?title=Fitness_Record_Book")
         self.set_comments("You must agree to the license before using this program")
-        self.set_authors(["Eric W. Sink","Ehud (Udi) Ben-Reuven"])
-        self.set_copyright("""Copyright 1997 Eric W. Sink; Copyright 2000-4,2007 Ehud (Udi) Ben-Reuven""")
+        self.set_authors(["Eric W. Sink","Ehud (Udi) Ben-Reuven","Ofer Barkai"])
+        self.set_copyright("""Copyright (c) 1997 Eric W. Sink\nCopyright (c) 2000-4 Ehud (Udi) Ben-Reuven\nCopyright (c) 2007 Ehud (Udi) Ben-Reuven & Ofer Barkai""")
         self.set_license(license)
         self.run()
         self.destroy()
