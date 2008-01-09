@@ -15,6 +15,7 @@ class DateObjList(Dialog):
     fname="fitness_dates.csv"
     def updateobj(self,obj):
         if obj.is_new:
+            obj.is_new=False
             self.liststore.append([obj])
         Dialog.updateobj(self,obj)
     def load(self):
@@ -86,12 +87,12 @@ class DateObjList(Dialog):
 
         self.treeview.connect('row-activated', self.edit)
         self.scrolledwindow = gtk.ScrolledWindow()
+        self.scrolledwindow.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_NEVER)
         self.scrolledwindow.add(self.treeview)
         win.vbox.pack_start(self.scrolledwindow)
 
         # Add Total/New buttons at the bottom
-        win.hbox = gtk.HBox()
-        win.bTotal = gtk.Button('Total')
+        win.bTotal = gtk.Button('Back')
         win.bTotal.connect('clicked', self.cancel_event)
         win.bNew = gtk.Button('New')
         win.bNew.connect('clicked', self.new_event)
@@ -100,6 +101,8 @@ class DateObjList(Dialog):
         win.vbox.pack_end(win.hbox, False)
 
         win.show_all()
+
+        #self.parent_window.hide()
     def edit(self, treeview, path, column):
         """Edit an entry when an item in the list is double clicked"""
         model = treeview.get_model()
@@ -191,11 +194,9 @@ class CalList(DateObjList):
         DateObjList.edit_obj(self,obj)
     def load(self):
         DateObjList.load(self)
-        print 'reading file ',self.dict_fname
         f = open(self.dict_fname,"rb")
         r = csv.reader(f)
         for row in r:
-            print row
             obj = self.objclass(self)
             obj.load(row)
             self.loadobjname(obj)

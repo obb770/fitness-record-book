@@ -1,5 +1,4 @@
 #!/usr/bin/env python2.5
-# TODO optimize button size for Nokia's screen
 # TODO package
 # TODO remove old records in DateObjList accoring to OptionsDialog.history
 # TODO add to OptionsDialog the folder location for CSV files
@@ -12,8 +11,6 @@
 # The below license appears in the About dialog-box
 license = """Fitness Record Book
 2007 Ehud (Udi) Ben-Reuven & Ofer Barkai
-Derived from:
-2000-4 Ehud (Udi) Ben-Reuven
 Derived from:
 Copyright 1997 Eric W. Sink
 
@@ -87,34 +84,18 @@ class FitnessApp(hildon.Program):
         else:
             self.week()
         self.draw()
-    def date_callback(self, widget, data):
-        if data:
-            dt=self.sdate
-        else:
-            dt=self.edate
-
-        dialog = hildon.CalendarPopup (self.window, dt.dt.year, dt.dt.month, dt.dt.day)
-        dialog.run()
-        dt1=dialog.get_date()
-        dt=Date(dt1[0],dt1[1],dt1[2])
-        dialog.destroy()
-        widget.set_label(str(dt)) # date2string(dt))
-
-        if data:
-            self.sdate=dt
-        else:
-            self.edate=dt
-        self.draw()
     def draw(self):
-        self.sbutton.set_label(str(self.sdate)) # date2string(self.sdate))
-        self.ebutton.set_label(str(self.edate)) # date2string(self.edate))
-        days=(self.edate-self.sdate).days+1
-        cal = self.foodDialog.cal_in_range(self.sdate,self.edate)
-        pa = self.paDialog.cal_in_range(self.sdate,self.edate)
+        sdate=Date(*self.sbutton.get_date())
+        edate=Date(*self.ebutton.get_date())
+
+        days=(edate-sdate).days+1
+        cal = self.foodDialog.cal_in_range(sdate,edate)
+        pa = self.paDialog.cal_in_range(sdate,edate)
         met=days*self.weightDialog.last_weight()*self.optionsDialog.met
-        net=met+pa-cal
-        behav=net/days/self.optionsDialog.met
-        left=net-days*self.optionsDialog.weight*self.optionsDialog.met
+        b=cal-pa
+        net=met-b
+        behav=b/days/self.optionsDialog.met
+        left=days*self.optionsDialog.weight*self.optionsDialog.met-b
         self.values[0].set_text('%.1f'%cal)
         self.values[1].set_text('%.1f'%pa)
         self.values[2].set_text('%.1f'%met)
@@ -130,7 +111,7 @@ class FitnessApp(hildon.Program):
     def menuitem_response(self, widget, data):
         if data==0:
             self.optionsDialog.run(self.window)
-            self.draw()
+            #self.draw()
         elif data==1:
             self.force_save()
         else:
@@ -138,18 +119,18 @@ class FitnessApp(hildon.Program):
 
     def today(self):
         t=datetime.date.today()
-        self.sdate=Date(t.year,t.month,t.day)
-        self.edate=Date(t.year,t.month,t.day)
+        self.sbutton.set_date(t.year,t.month,t.day)
+        self.ebutton.set_date(t.year,t.month,t.day)
     def yesterday(self):
         t=datetime.date.today()
         t-=datetime.timedelta(1)
-        self.sdate=Date(t.year,t.month,t.day)
-        self.edate=Date(t.year,t.month,t.day)
+        self.sbutton.set_date(t.year,t.month,t.day)
+        self.ebutton.set_date(t.year,t.month,t.day)
     def week(self):
         t=datetime.date.today()
-        self.edate=Date(t.year,t.month,t.day)
+        self.ebutton.set_date(t.year,t.month,t.day)
         t-=datetime.timedelta(t.weekday())
-        self.sdate=Date(t.year,t.month,t.day)
+        self.sbutton.set_date(t.year,t.month,t.day)
 
     # Called whenever the application is sent to background or
     # get to foreground. If it goes to background, calls
@@ -162,15 +143,15 @@ class FitnessApp(hildon.Program):
             self.set_can_hibernate(True)
     def updateobj(self,obj):
         self.autosave.userdata_changed()
+        self.draw()
     def force_save(self):
         self.autosave.force_autosave()
     def quit(self, evt):
         self.force_save()
         gtk.main_quit()
+    def date_change(self,gobject, property_spec,isstart):
+        self.draw()
     def __init__(self):
-        self.sdate=Date(2007,12,1)
-        self.edate=Date(2007,12,1)
-
         hildon.Program.__init__(self)
         self.context = osso.Context("fitness", "0.0.1", False)
         self.autosave = osso.Autosave(self.context)
@@ -195,7 +176,7 @@ class FitnessApp(hildon.Program):
         self.window.set_menu(menu)
         menu.show()
 
-        table = gtk.Table(13, 3, True)
+        table = gtk.Table(13, 3, False)
         r=0
 
         c=0
@@ -207,9 +188,12 @@ class FitnessApp(hildon.Program):
             c+=1
         r+=2
 
-        button = gtk.Button()
+        button = hildon.DateEditor()
         self.sbutton=button
-        button.connect("clicked", self.date_callback, True)
+        # FIXME there is no event to DateEditor indicating that the date has changed
+        button.connect("notify::year", self.date_change,True)
+        button.connect("notify::month",self.date_change,True)
+        button.connect("notify::day",self.date_change,True)
         table.attach(button,0,1,r,r+1)
         button.show()
 
@@ -217,9 +201,12 @@ class FitnessApp(hildon.Program):
         table.attach(label,1,2,r,r+1)
         label.show()
 
-        button = gtk.Button()
+        button = hildon.DateEditor()
         self.ebutton=button
-        button.connect("clicked", self.date_callback, False)
+        # FIXME there is no event to DateEditor indicating that the date has changed
+        button.connect("notify::year",self.date_change,False)
+        button.connect("notify::month",self.date_change,False)
+        button.connect("notify::day",self.date_change,False)
         table.attach(button,2,3,r,r+1)
         button.show()
         r+=1
