@@ -46,7 +46,7 @@ try:
 except:
     from hildonstub import hildon
 
-# the application main window launches lists which in turn launches
+# the application main window launches lists which in tern launches
 # dialogs which in turn are made from items
 from items import *
 from dialogs import *
