@@ -3,6 +3,7 @@ import pygtk
 pygtk.require('2.0')
 import gtk, pango
 import time
+import datetime
 
 class Program(object):
     def __init__(self):
@@ -299,6 +300,27 @@ class Window(gtk.Window):
         self.menu_bar.append(root_menu)
         self.mwindow.show()
 
+class DateEditor(gtk.Button):
+    fmt='%d-%b-%y'
+    def __init__(self):
+        gtk.Button.__init__(self)
+        self.connect("clicked", self.clicked_callback)
+        self.year,self.month,self.day=(2007,12,31)
+        self.draw()
+    def clicked_callback(self,data=None):
+        dialog = CalendarPopup (None, self.year, self.month, self.day)
+        dialog.run()
+        self.year,self.month,self.day=dialog.get_date()
+        dialog.destroy()
+        self.draw()
+    def draw(self):
+        dt=datetime.date(self.year,self.month,self.day)
+        self.set_label(dt.strftime(self.fmt)) # date2string(dt))
+    def set_date(self,year,month,day):
+        self.year,self.month,self.day=(year,month,day)
+        self.draw()
+    def get_date(self):
+        return (self.year,self.month,self.day)
 
 class HildonStub(object):
     def __init__(self):
@@ -306,6 +328,7 @@ class HildonStub(object):
         self.HildonWidget = HildonWidget
         self.CalendarPopup = CalendarPopup
         self.Window = Window
+        self.DateEditor = DateEditor
 
 
 hildon = HildonStub()

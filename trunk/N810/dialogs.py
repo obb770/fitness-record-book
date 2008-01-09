@@ -28,6 +28,7 @@ class Dialog(object):
         """Make the edit dialog box without running it. This can be extended
         by sub class
         """
+        self.parent_window=parent_window
         # Dont use gtk.Dialog and dont use modal because Nokia
         win=gtk.Window()
         win.set_modal(True)
@@ -36,8 +37,10 @@ class Dialog(object):
         win.vbox=gtk.VBox()
         win.add(win.vbox)
         win.vbox.show()
+        # create a box for the bottom row of keys.
+        win.hbox = gtk.HBox()
+        win.hbox.set_size_request(-1,60)
         if OKCancel:
-            win.hbox = gtk.HBox()
             win.bOK = gtk.Button('OK')
             win.bOK.connect('clicked', self.ok_event)
             win.bCancel = gtk.Button('Cancel')
@@ -54,6 +57,7 @@ class Dialog(object):
     def delete_event(self, widget, event, data=None):
         return False
     def destroy(self, widget, data=None):
+        #self.parent_window.show_all()
         pass
     def cancel_event(self, widget, data=None):
         self.dialog.destroy()
@@ -71,11 +75,12 @@ class Dialog(object):
         except:
             # If there were problems, dont destroy the window and the user will
             # have to continue and play with it.
-            pass
+            return False
         for attr,value in zip(self.attributes,temp_value):
             self.__setattr__(attr,value)
         self.dialog.destroy()
-        self.updateobj(self)        
+        self.updateobj(self)
+        return True
     def run(self,parent_window):
         self.make_dialog(parent_window)
 
@@ -96,6 +101,8 @@ class Dialog(object):
         self.dialog.vbox.pack_start(table, False, False, 0)
         table.show()
         self.dialog.show()
+
+        #self.parent_window.hide()
 
     def newvalues(self):
         self.is_new=True
@@ -134,63 +141,39 @@ class DateObj(Dialog):
     For example: Weight, food eating, Physical Activity.
     It is possible for multiple objects to have the same date
     """
-    def __init__(self,parentDialog):
-        Dialog.__init__(self,parentDialog)
-    def newvalues(self):
-        self.date=Date(datetime.date.today())
-        Dialog.newvalues(self)
-    def date_callback(self, widget):
-        """Allow entrance of new date when the date button is pressed"""
-        dt=self.date
-        dialog = hildon.CalendarPopup(self.dialog, dt.dt.year, dt.dt.month, dt.dt.day)
-        dialog.run()
-        dt1=dialog.get_date()
-        dt=Date(dt1[0],dt1[1],dt1[2])
-        dialog.destroy()
-        widget.set_label(str(dt)) # date2string(dt))
-        self.date=dt
-    def make_dialog(self,parent_window):
-        Dialog.make_dialog(self,parent_window)
-
-        button = gtk.Button()
-        button.set_label(str(self.date))
-        button.connect("clicked", self.date_callback)
-        self.dialog.vbox.pack_start(button, False, False, 0)
-        button.show()
     def __cmp__(self,other):
         """Comparing two DateObj is done by comparing their dates. This is needed
         in order to sort the list of objects which is held in DateObjList"""
         return cmp(self.date,other.date)
     def save(self,w):
-        w.writerow([`self.date`]+[self.__getattribute__(attr) for attr in self.attributes])
+        w.writerow([self.__getattribute__(attr) for attr in self.attributes])
     def load(self,row):
-        types=[Date]+self.types
-        attrs=['date']+self.attributes
         for i,value in enumerate(row):
-            value=types[i](value)
-            self.__setattr__(attrs[i],value)
+            value=self.types[i](value)
+            self.__setattr__(self.attributes[i],value)
     def run(self,parent_window):
         Dialog.run(self,parent_window)
-        self.entries[0].grab_focus()
+        self.entries[1].grab_focus()
+        #self.parent_window.hide()
 
 class Weight(DateObj):
     """Single weight entry"""
-    labels = ["Weight"]
-    attributes = ["weight"]
-    types=[MyFloat]
-    values=[0.] # use latest value
+    labels = ["Date","Weight"]
+    attributes = ["date","weight"]
+    types=[Date,MyFloat]
+    values=["today",0.] # use latest value
 
 class Cal(DateObj):
     """Single cal entry"""
-    labels = ["Desc","Quantity","Unit","Cal/Unit"]
-    attributes = ["desc","quant","unit","calunit"]
-    values = ["", 0., "", 0.]
+    labels = ["Date","Desc","Quantity","Unit","Cal/Unit"]
+    attributes = ["date","desc","quant","unit","calunit"]
+    values = ["today","", 0., "", 0.]
     def cals(self):
         return self.quant * self.calunit
 
 class PA(Cal):
-    types=[Completion,MyFloat,PAUnit,MyFloat]
+    types=[Date,Completion,MyFloat,PAUnit,MyFloat]
 
 class Food(Cal):
-    types=[Completion,MyFloat,FoodUnit,MyFloat]
+    types=[Date,Completion,MyFloat,FoodUnit,MyFloat]
 

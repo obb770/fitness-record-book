@@ -1,6 +1,10 @@
 import gtk
 import time
 import datetime
+try:
+    import hildon
+except:
+    from hildonstub import hildon
 
 class MyFloat(float):
     def entry(self,dialog):
@@ -20,33 +24,46 @@ class MyInt(int):
         txt=str(self)
         entry.set_text(txt)
 
+# repr and init must use same format
+datefmt='%d-%b-%y'
+class MyDateEditor(hildon.DateEditor):
+    def get_text(self):
+        dt=datetime.date(*self.get_date())
+        return dt.strftime(datefmt)
 class Date(object):
-    # repr and init must use same format
-    fmt='%d-%b-%y'
+
     def __init__(self,year,month=None,day=None):
         """Create using either a 3-tuplet or a string with the exact same
 	format used in repr"""
         if isinstance(year,datetime.date):
             self.dt=year
+        elif year=="today":
+            self.dt=datetime.date.today()
         else:
             if isinstance(year,str):
                 s=year
-                t=time.strptime(s,self.fmt)
+                t=time.strptime(s,datefmt)
                 year,month,day = t[0:3]
             self.dt=datetime.date(year,month,day)
         assert self.dt
     def __repr__(self):
         """ US string representation of date.
 	TODO: get local format from OS"""
-        return self.dt.strftime(self.fmt)        
-    def __str__(self):
-        """ US string representation of date.
-	TODO: get local format from OS"""
-        return self.dt.strftime('%m/%d/%y')
+        return self.dt.strftime(datefmt)        
     def __cmp__(self,other):
         return cmp(self.dt,other.dt)
     def __sub__(self,other):
         return self.dt-other.dt
+    def get_date(self):
+        return (self.dt.year,self.dt.month,self.dt.day)
+    def entry(self,dialog):
+        entry=MyDateEditor()
+        entry.set_date(*self.get_date())
+        return entry
+    def setentry(self,entry):
+        # On purpose dont do anything because we dont want date to be modified
+        # by completion selection
+        pass
         
 class Combo(object):
     list=[]
@@ -73,43 +90,7 @@ class PAUnit(Combo):
     list=["Item","Minute","Mile"]
 class FoodUnit(Combo):
     list=['Item','Tsp','Tbsp','Cup','Ounce','Slice','Bowl']
-
-    
-class Completion2(object):
-    # An envolpe to hold text that can be entered with gtk.Entry and completion
-    # dont use gtk.EntryCompletion because the completion required by the
-    # application is more involved. Also gtk.EntryCompletion does not allow
-    # the parent dialog to be modal on Nokia
-    def __init__(self,txt=''):
-        self.txt=txt
-        self.last_t=txt
-    def entry(self,parentDialog):
-        self.parentDialog=parentDialog
-        entry = gtk.Entry()
-        entry.set_text(self.txt)
-        entry.connect("changed",self.changed_cb)
-        return entry
-    def changed_cb(self,entry):
-        t=entry.get_text()
-        p=min([len(t),entry.get_position()])
-        print "Changed",t,p
-        s=t[:p+1]
-        if t==self.last_t: return
-        entry.set_text(s)
-        if not s: return
-        for l in self.parentDialog.completion_liststore:
-            r=str(l[0].desc)
-            if r.startswith(s):
-                # this must be before set_text because set_text will recursively
-                # call this method
-                self.last_t=r
-                entry.set_text(r)
-                entry.set_position(p)
-                entry.show()
-                break
-    def __str__(self): # TODO who is using this
-        return self.txt
-   
+  
 class Completion(object):
     # An envolpe to hold text that can be entered with gtk.Entry and completion
     def __init__(self,txt=''):
