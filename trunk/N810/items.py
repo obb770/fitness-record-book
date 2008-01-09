@@ -10,7 +10,11 @@ class MyFloat(float):
     def entry(self,dialog):
         entry = gtk.Entry()
         self.setentry(entry)
+        entry.connect("focus-in-event", self.focus_in_event)
         return entry
+    def focus_in_event(self,widget,event):
+        print 'select',widget.get_text()
+        widget.select_region(0,-1)
     def setentry(self,entry):
         txt='%.1f'%self
         entry.set_text(txt)
