@@ -1,0 +1,12 @@
+#!/usr/bin/python2.5
+
+from os import makedirs, getcwd, chdir
+if getcwd() == "/":
+    from os.path import join, expanduser
+    home = expanduser(join("~", ".fitness"))
+    try:
+        makedirs(home)
+    except:
+        pass
+    chdir(home)
+import fitness.fitness
