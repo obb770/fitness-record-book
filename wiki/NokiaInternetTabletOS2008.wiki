@@ -1,0 +1,22 @@
+#summary One-sentence summary of this page.
+
+= Introduction =
+
+Python code
+
+
+= How to build a package =
+
+On a shell that has 'tar', 'gzip', 'du' and 'rm' you can just run (hopefully this will run on the device too - tested on Ubuntu and Cygwin):
+{{{
+$ python deb.py
+}}}`
+it assumes that you are in the source directory and will create `fitness_0.1.0-1_all.deb` in the current directory.
+
+Then you copy the file to the Nokia and from the application manager select `Application->Install` from `file...` then select the .deb file that you copied.
+
+You should see the program in the Task Navigator under `Extras`
+
+You should be able to uninstall from the application manager
+
+The saved data is written under `/home/user/.fitness` (see `fitness` file - no .py, for the code that creates the directory and chdir there).
