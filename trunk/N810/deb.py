@@ -101,7 +101,7 @@ for pyfile in pyfiles:
 icon_dir = join(deb, "data", "usr", "share", "icons", "hicolor")
 install(name + "_26x26.png", join(icon_dir, "26x26", "hildon", name + ".png"))
 install(name + "_40x40.png", join(icon_dir, "40x40", "hildon", name + ".png"))
-install(name + "_40x40.png", # FIXME: should be 64x64
+install(name + "_64x64.png",
         join(icon_dir, "scalable", "hildon", name + ".png"))
 install(name + ".desktop", 
         join(deb, "data", "usr", "share", "applications", "hildon", ""))
