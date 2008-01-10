@@ -3,7 +3,6 @@
 # Depends on 'tar', ('gzip'), 'rm' and 'du'
 #
 # FIXME:
-# - fill in control details (Maintainer, Description, Depends, Installed-Size)
 # - md5sums in control
 #
 from os import stat, mkdir, makedirs, chdir, system, chmod, popen
@@ -23,10 +22,11 @@ Section: user/tools
 Priority: optional
 Architecture: %s
 Installed-Size: %s 
-Maintainer: someone <someone@somewhere>
-Description: short description
- first long description line
- last long description line
+Maintainer: obb770 <obb770@gmail.com>
+Depends: python2.5-runtime, hildon-application-manager
+Description: Fitness record book
+ Calorie counter application for the Internet Tablet
+ .
 """
 
 deb = "%s_%s_%s" % (name, version, arch)
@@ -145,7 +145,12 @@ write_file(join(deb, "control", "control"),
            icon_field + "".join(icon_chars))
 
 write_file(join(deb, "control", "postinst"), 
-           "#!/bin/sh\ngtk-update-icon-cache -f /usr/share/icons/hicolor\n", 
+           """#!/bin/sh
+gtk-update-icon-cache -f /usr/share/icons/hicolor
+if [ "$2" = "" ]; then
+  maemo-select-menu-location fitness.desktop
+fi
+""", 
            True)
 
 write_file(join(deb, "control", "prerm"), 
