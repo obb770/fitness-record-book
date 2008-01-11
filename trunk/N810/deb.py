@@ -1,9 +1,6 @@
 #
 # Create a debian package
 #
-# FIXME:
-# - md5sums in control
-#
 from os import mkdir, makedirs, chdir, chmod, getcwd, walk, remove, rmdir
 from os.path import getmtime, getsize, join, basename, dirname
 from base64 import b64encode
@@ -118,6 +115,23 @@ def du(path):
             size += getsize(join(top, f))
     return (size + 1023) // 1024
 
+def md5sum(path, md5file):
+    import md5
+    cwd = getcwd()
+    chdir(path)
+    for top, dirs, files in walk("."):
+        for name in files:
+            f = open(join(top, name), "rb")
+            m = md5.new()
+            while True:
+                buf = f.read(4096)
+                if not buf:
+                    break
+                m.update(buf)
+            f.close()
+            md5file.write("%s  %s\n" % (m.hexdigest(), join(top, name)[2:]))
+    chdir(cwd)
+
 rm(deb + '.deb')
 rm(deb)
 mkdir(deb)
@@ -172,6 +186,12 @@ icon_field += "".join(icon_chars)
 
 install(StringIO(control % (name, version, arch, size) + icon_field),
         join(deb, "control", "control"))
+
+md5sums = join(deb, "control", "md5sums")
+md5file =  file(md5sums, "wb")
+md5sum(join(deb, "data"), md5file)
+md5file.close()
+set_mode(md5sums)
 
 install(StringIO("""#!/bin/sh
 gtk-update-icon-cache -f /usr/share/icons/hicolor
