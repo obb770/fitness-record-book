@@ -2,11 +2,11 @@ The fitness record book implementation on Nokia's Internet Tablet device runs on
 
 = How to build a package =
 
-On a shell that has `tar`, `gzip`, `du` and `rm` you can just run (hopefully this will run on the device too - tested on Ubuntu and Cygwin):
+In a standard python distribution you can just run (hopefully this will run on the device too - tested on Ubuntu and Cygwin):
 {{{
 $ python deb.py
 }}}
-it assumes that you are in the source directory and will create `fitness_0.1.0-1_all.deb` in the current directory.
+it assumes that you are in the source directory and will create `fitness_<version>_all.deb` in the current directory.
 
 Then you copy the file to the Nokia and from the application manager select `Application->Install` from `file...` then select the .deb file that you copied.
 
