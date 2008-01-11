@@ -1,3 +1,6 @@
+= Nokia =
+http://benreuven.com/udiwiki/index.php?title=Fitness_Record_Book#Nokia_Internet_Tablet.2FPython_edition
+= AJAX =
   * Unzip GWT downloaded from http://code.google.com/webtoolkit/download.html into D:\Software\Java\gwt-windows-1.4.60 (see  http://code.google.com/webtoolkit/gettingstarted.html)
   * Checkout the source code
   * In the trunk of the source code run Fitness-shell.cmd 
