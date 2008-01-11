@@ -87,7 +87,7 @@ class DateObjList(Dialog):
 
         self.treeview.connect('row-activated', self.edit)
         self.scrolledwindow = gtk.ScrolledWindow()
-        self.scrolledwindow.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_NEVER)
+        self.scrolledwindow.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
         self.scrolledwindow.add(self.treeview)
         win.vbox.pack_start(self.scrolledwindow)
 
