@@ -1,4 +1,6 @@
 The fitness record book implementation on Nokia's Internet Tablet device runs on OS2008 and is written in Python.
+Usage information can be found at
+http://benreuven.com/udiwiki/index.php?title=Fitness_Record_Book#Nokia_Internet_Tablet.2FPython_edition
 
 = How to build a package =
 
@@ -7,11 +9,3 @@ In a standard python distribution you can just run (hopefully this will run on t
 $ python deb.py
 }}}
 it assumes that you are in the source directory and will create `fitness_<version>_all.deb` in the current directory.
-
-Then you copy the file to the Nokia and from the application manager select `Application->Install` from `file...` then select the .deb file that you copied.
-
-You should see the program in the Task Navigator under `Extras`
-
-You should be able to uninstall from the application manager
-
-The saved data is written under `/home/user/.fitness` (see `fitness` file - no .py, for the code that creates the directory and chdir there).
