@@ -6,6 +6,6 @@ http://benreuven.com/udiwiki/index.php?title=Fitness_Record_Book#Nokia_Internet_
 
 In a standard python distribution you can just run (hopefully this will run on the device too - tested on Ubuntu and Cygwin):
 {{{
-$ python deb.py
+$ python deb.py [ <version> ]
 }}}
-it assumes that you are in the source directory and will create `fitness_<version>_all.deb` in the current directory.
+it assumes that you are in the source directory and will create `fitness_<version>_all.deb` in the current directory. The optional _version_ parameter will set the version string to its value; if it is not specified, the environment variable `FITNESS_VERSION` will be used; if it is not defined, the subversion revision number will be used to make the version: `1.<revision>`.
