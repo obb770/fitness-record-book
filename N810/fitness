@@ -1,6 +1,8 @@
 #!/usr/bin/python2.5
 
-from os import makedirs, getcwd, chdir
+from os import makedirs, getcwd, chdir, environ
+version = "<unknown>" # set during packaging 
+environ["FITNESS_VERSION"] = version
 if getcwd() == "/":
     from os.path import join, expanduser
     home = expanduser(join("~", ".fitness"))

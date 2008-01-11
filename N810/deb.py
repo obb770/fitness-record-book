@@ -1,13 +1,14 @@
 #
 # Create a debian package
 #
-from os import mkdir, makedirs, chdir, chmod, getcwd, walk, remove, rmdir
+from sys import argv
+from os import mkdir, makedirs, chdir, chmod, getcwd, walk, remove, rmdir, \
+    environ, popen
 from os.path import getmtime, getsize, join, basename, dirname
 from base64 import b64encode
 from StringIO import StringIO
 
 name = "fitness"
-version = "0.1.0-1"
 arch = "all"
 size = "0"
 
@@ -25,6 +26,17 @@ Description: Fitness record book
  Calorie counter application for the Internet Tablet
  .
 """
+
+# version
+if len(argv) > 1:
+    version = argv[1]
+elif "FITNESS_VERSION" in environ:
+    version = environ["FITNESS_VERSION"]
+else:
+    f = popen("svn info | sed -n -e 's/Revision: *//p'", "rb")
+    version = f.read()
+    f.close()
+    version = "1." + version[:-1]
 
 deb = "%s_%s_%s" % (name, version, arch)
 
@@ -68,6 +80,7 @@ def install(src, dst, executable=False):
     except:
         pass
     copy(src, False, dst, True)
+    src.close()
     set_mode(dst, executable)
     
 def tar(tarname, root):
@@ -137,7 +150,18 @@ rm(deb)
 mkdir(deb)
 
 # data
-install(file(name, "rb"), join(deb, "data", "usr", "bin", name), True)
+
+# set the version
+f = file(name, "rb")
+s = StringIO()
+for line in f:
+    if line.startswith('version = "<unknown>"'):
+        s.write('version = "%s"\n' % (version,))
+    else:
+        s.write(line)
+s.seek(0)
+f.close()
+install(s, join(deb, "data", "usr", "bin", name), True)
 
 pkg_dir = join(deb, "data", "usr", "lib", "python2.5", "site-packages", name)
 install(StringIO(""), join(pkg_dir, "__init__.py"))
