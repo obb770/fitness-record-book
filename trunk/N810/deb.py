@@ -74,13 +74,26 @@ def install(src, dst, executable=False):
     set_mode(dst, executable)
     
 def tar(tarname, root):
-    from tarfile import open as taropen
-    f = taropen(tarname, "w:gz")
+    import tarfile
+    tf = tarfile.open(tarname, "w:gz")
     cwd = getcwd()
     chdir(root)
-    f.add('.')
+    def add(path, is_dir=False):
+        ti = tf.gettarinfo(path)
+        ti.uid = 0
+        ti.uname = "root"
+        ti.gid = 0
+        ti.gname = "root"
+        if is_dir:
+            tf.addfile(ti)
+        else:
+            tf.addfile(ti, file(path, "rb"))
+    for top, dirs, files in walk("."):
+        add(top, True)
+        for f in files:
+            add(join(top, f))
     chdir(cwd)
-    f.close()
+    tf.close()
 
 def rm(path):
     try:
