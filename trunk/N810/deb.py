@@ -1,12 +1,11 @@
 #
 # Create a debian package
-# Depends on 'tar', ('gzip'), 'rm' and 'du'
 #
 # FIXME:
 # - md5sums in control
 #
-from os import stat, mkdir, makedirs, chdir, system, chmod, popen
-from os.path import join, basename, dirname
+from os import mkdir, makedirs, chdir, chmod, getcwd, walk, remove, rmdir
+from os.path import getmtime, getsize, join, basename, dirname
 from base64 import b64encode
 from StringIO import StringIO
 
@@ -51,11 +50,10 @@ def archive(arname, files):
     arfile = file(arname, "wb")
     arfile.write("!<arch>\n");
     for filename in files:
-        st = stat(filename)
         arfile.write("%-16s%-12d0     0     100644  %-10d\140\n" % 
-                     (filename, st.st_mtime, st.st_size))
+                     (filename, getmtime(filename), getsize(filename)))
         copy(filename, True, arfile, False)
-        if st.st_size % 2 != 0:
+        if getsize(filename) % 2 != 0:
             arfile.write("\n")
     arfile.close()
 
@@ -75,8 +73,40 @@ def install(src, dst, executable=False):
     copy(src, False, dst, True)
     set_mode(dst, executable)
     
+def tar(tarname, root):
+    from tarfile import open as taropen
+    f = taropen(tarname, "w:gz")
+    cwd = getcwd()
+    chdir(root)
+    f.add('.')
+    chdir(cwd)
+    f.close()
 
-system("rm -rf %s.deb %s" % (deb, deb))
+def rm(path):
+    try:
+        remove(path)
+        return
+    except:
+        pass
+    try:
+        for top, dirs, files in walk(path, topdown=False):
+            for f in files:
+                remove(join(top, f))
+            for d in dirs:
+                rmdir(join(top, d))
+        rmdir(path)
+    except:
+        pass
+
+def du(path):
+    size = 0
+    for top, dirs, files in walk(path):
+        for f in files:
+            size += getsize(join(top, f))
+    return (size + 1023) // 1024
+
+rm(deb + '.deb')
+rm(deb)
 mkdir(deb)
 
 # data
@@ -100,20 +130,14 @@ install(file(name + ".desktop", "rb"),
 install(file("README.txt", "rb"),
         join(deb, "data", "usr", "share", "doc", name, "copyright"))
 
-system("tar zcfC " + join(deb, "data.tar.gz") + " " 
-       + join(deb, "data") + " .")
+tar(join(deb, "data.tar.gz"), join(deb, "data"))
 
 
 # control
 mkdir(join(deb, "control"))
 
 # size
-f = popen("du -k -s " + join(deb, "data"))
-size = f.readline()
-f.close()
-l = size.find("\t")
-if l > 0:
-    size = size[:l]
+size = "%d" % (du(join(deb, "data")),)
 
 # icon
 f = file(join(icon_dir, "26x26", "hildon", name + ".png"), "rb")
@@ -131,9 +155,9 @@ for c in icon:
     icon_chars.append(c)
     count += 1
 icon_chars.append("\n")
+icon_field += "".join(icon_chars)
 
-install(StringIO(control % (name, version, arch, size) + 
-                 icon_field + "".join(icon_chars)), 
+install(StringIO(control % (name, version, arch, size) + icon_field),
         join(deb, "control", "control"))
 
 install(StringIO("""#!/bin/sh
@@ -148,9 +172,7 @@ rm -f /usr/lib/python2.5/site-packages/%s/*.pyo
 """ 
         % (name,)), join(deb, "control", "prerm"), True)
 
-system("tar zcfC " + join(deb, "control.tar.gz") + " " 
-       + join(deb, "control") + " .")
-
+tar(join(deb, "control.tar.gz"), join(deb, "control"))
 
 install(StringIO("2.0\n"), join(deb, "debian-binary"));
 
@@ -159,5 +181,5 @@ archive(join("..",deb + ".deb"),
         ("debian-binary", "control.tar.gz", "data.tar.gz"))
 chdir("..")
 
-system("rm -rf %s" % (deb,))
+rm(deb)
 
