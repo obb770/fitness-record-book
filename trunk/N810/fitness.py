@@ -65,7 +65,7 @@ class AboutDialog(gtk.AboutDialog):
         self.set_size_request(*SZ)
         self.set_name("Fitness Record Book (Python/Gtk)")
         self.set_version("0.1")
-        self.set_website("http://benreuven.com/udiwiki/index.php?title=Fitness_Record_Book")
+        self.set_website("http://benreuven.com/udi/diet")
         self.set_comments("You must agree to the license before using this program")
         self.set_authors(["Eric W. Sink","Ehud (Udi) Ben-Reuven","Ofer Barkai"])
         self.set_copyright("""Copyright (c) 1997 Eric W. Sink\nCopyright (c) 2000-4 Ehud (Udi) Ben-Reuven\nCopyright (c) 2007 Ehud (Udi) Ben-Reuven & Ofer Barkai""")
