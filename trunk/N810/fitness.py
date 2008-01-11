@@ -52,6 +52,13 @@ try:
 except:
     from hildonstub import hildon
 
+# The version of the application
+try:
+    from os import environ
+    version = environ["FITNESS_VERSION"]
+except:
+    version = "<unknown>"
+
 # the application main window launches lists which in tern launches
 # dialogs which in turn are made from items
 from items import *
@@ -63,10 +70,11 @@ class AboutDialog(gtk.AboutDialog):
     def __init__(self):
         gtk.AboutDialog.__init__(self)
         self.set_size_request(*SZ)
-        self.set_name("Fitness Record Book (Python/Gtk)")
-        self.set_version("0.1")
+        self.set_logo_icon_name("fitness")
+        self.set_name("Fitness Record Book")
+        self.set_version(version)
         self.set_website("http://benreuven.com/udi/diet")
-        self.set_comments("You must agree to the license before using this program")
+        self.set_comments("You must agree to the license\nbefore using this program")
         self.set_authors(["Eric W. Sink","Ehud (Udi) Ben-Reuven","Ofer Barkai"])
         self.set_copyright("""Copyright (c) 1997 Eric W. Sink\nCopyright (c) 2000-4 Ehud (Udi) Ben-Reuven\nCopyright (c) 2007 Ehud (Udi) Ben-Reuven & Ofer Barkai""")
         self.set_license(license)
@@ -159,7 +167,7 @@ class FitnessApp(hildon.Program):
         self.draw()
     def __init__(self):
         hildon.Program.__init__(self)
-        self.context = osso.Context("fitness", "0.0.1", False)
+        self.context = osso.Context("fitness", version, False)
         self.autosave = osso.Autosave(self.context)
         # because of bug in osso.Autosave you must pass a call-back data
         self.autosave.set_autosave_callback(self.save,1)
