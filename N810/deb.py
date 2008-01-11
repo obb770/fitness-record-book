@@ -6,8 +6,9 @@
 # - md5sums in control
 #
 from os import stat, mkdir, makedirs, chdir, system, chmod, popen
-from os.path import split, join, basename, dirname
+from os.path import join, basename, dirname
 from base64 import b64encode
+from StringIO import StringIO
 
 name = "fitness"
 version = "0.1.0-1"
@@ -65,25 +66,13 @@ def set_mode(filename, executable=False):
         mode = mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
     chmod(filename, mode)
 
-def write_file(filename, contents, executable=False):
-    try:
-        makedirs(dirname(filename))
-    except:
-        pass
-    f = file(filename, "wb")
-    f.write(contents)
-    f.close()
-    set_mode(filename, executable)
-
 def install(src, dst, executable=False):
-    (dstdir, dstbase) = split(dst)
+    dstdir = dirname(dst)
     try:
         makedirs(dstdir)
     except:
         pass
-    if dstbase == "":
-        dst = join(dstdir, basename(src))
-    copy(src, True, dst, True)
+    copy(src, False, dst, True)
     set_mode(dst, executable)
     
 
@@ -91,21 +80,24 @@ system("rm -rf %s.deb %s" % (deb, deb))
 mkdir(deb)
 
 # data
-install(name, join(deb, "data", "usr", "bin", name), True)
+install(file(name, "rb"), join(deb, "data", "usr", "bin", name), True)
 
 pkg_dir = join(deb, "data", "usr", "lib", "python2.5", "site-packages", name)
-write_file(join(pkg_dir, "__init__.py"), "")
+install(StringIO(""), join(pkg_dir, "__init__.py"))
 for pyfile in pyfiles:
-    install(pyfile, join(pkg_dir, ""))
+    install(file(pyfile, "rb"), join(pkg_dir, pyfile))
 
 icon_dir = join(deb, "data", "usr", "share", "icons", "hicolor")
-install(name + "_26x26.png", join(icon_dir, "26x26", "hildon", name + ".png"))
-install(name + "_40x40.png", join(icon_dir, "40x40", "hildon", name + ".png"))
-install(name + "_64x64.png",
+install(file(name + "_26x26.png", "rb"),
+        join(icon_dir, "26x26", "hildon", name + ".png"))
+install(file(name + "_40x40.png", "rb"),
+        join(icon_dir, "40x40", "hildon", name + ".png"))
+install(file(name + "_64x64.png", "rb"),
         join(icon_dir, "scalable", "hildon", name + ".png"))
-install(name + ".desktop", 
-        join(deb, "data", "usr", "share", "applications", "hildon", ""))
-install("README.txt", 
+install(file(name + ".desktop", "rb"),
+        join(deb, "data", "usr", "share", "applications", "hildon", 
+             name + ".desktop"))
+install(file("README.txt", "rb"),
         join(deb, "data", "usr", "share", "doc", name, "copyright"))
 
 system("tar zcfC " + join(deb, "data.tar.gz") + " " 
@@ -140,29 +132,27 @@ for c in icon:
     count += 1
 icon_chars.append("\n")
 
-write_file(join(deb, "control", "control"), 
-           control % (name, version, arch, size) + 
-           icon_field + "".join(icon_chars))
+install(StringIO(control % (name, version, arch, size) + 
+                 icon_field + "".join(icon_chars)), 
+        join(deb, "control", "control"))
 
-write_file(join(deb, "control", "postinst"), 
-           """#!/bin/sh
+install(StringIO("""#!/bin/sh
 gtk-update-icon-cache -f /usr/share/icons/hicolor
-if [ "$2" = "" ]; then
-  maemo-select-menu-location fitness.desktop
+if [ "$1" = "configure" -a "$2" = "" ]; then
+  maemo-select-menu-location fitness.desktop tana_fi_extras
 fi
-""", 
-           True)
+"""), join(deb, "control", "postinst"), True)
 
-write_file(join(deb, "control", "prerm"), 
-           "#!/bin/sh\nrm -f /usr/lib/python2.5/site-packages/" + name + 
-           "/*.pyo\n",
-           True)
+install(StringIO("""#!/bin/sh
+rm -f /usr/lib/python2.5/site-packages/%s/*.pyo
+""" 
+        % (name,)), join(deb, "control", "prerm"), True)
 
 system("tar zcfC " + join(deb, "control.tar.gz") + " " 
        + join(deb, "control") + " .")
 
 
-write_file(join(deb, "debian-binary"), "2.0\n")
+install(StringIO("2.0\n"), join(deb, "debian-binary"));
 
 chdir(deb)
 archive(join("..",deb + ".deb"), 
