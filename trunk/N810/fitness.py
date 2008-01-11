@@ -1,9 +1,15 @@
 #!/usr/bin/env python2.5
-# TODO package
+# TODO dictonary of stored values should have a key based on description and
+#      unit. For this to work there should be an interactive recall of data from
+#      the dictonary which is based also on unit selected in dialog box
+#      there is no problem in upgrading existing CSV files because the _dict
+#      files already have the unit in each line.
+# TODO try using hildon.NumberEditor how to handle fractions? perhaps by
+#      using Int and adding more units
 # TODO remove old records in DateObjList accoring to OptionsDialog.history
 # TODO add to OptionsDialog the folder location for CSV files
-# TODO DateObj.run.Cancel
 # TODO DateObj.run.Del
+# TODO current manual date range selection is buggy. Instead popup a dialog box in which Start/End dates are selected and validated.
 # TODO validate date range
 # TODO mark the location of input errors in dialog
 # TODO localization
