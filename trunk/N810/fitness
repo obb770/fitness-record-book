@@ -1,14 +1,15 @@
 #!/usr/bin/python2.5
 
-from os import makedirs, getcwd, chdir, environ
+from os import makedirs, chdir, environ
+from os.path import join, expanduser
+
 version = "<unknown>" # set during packaging 
 environ["FITNESS_VERSION"] = version
-if getcwd() == "/":
-    from os.path import join, expanduser
-    home = expanduser(join("~", ".fitness"))
-    try:
-        makedirs(home)
-    except:
-        pass
-    chdir(home)
+
+home = expanduser(join("~", ".fitness"))
+try:
+    makedirs(home)
+except:
+    pass
+chdir(home)
 import fitness.fitness
