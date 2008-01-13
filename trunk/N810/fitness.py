@@ -52,12 +52,10 @@ try:
 except:
     from hildonstub import hildon
 
-# The version of the application
-try:
-    from os import environ
-    version = environ["FITNESS_VERSION"]
-except:
-    version = "<unknown>"
+# The version and service name of the application
+from os import getenv
+version = getenv("FITNESS_VERSION", "<unknown>")
+service = getenv("FITNESS_SERVICE", "fitness")
 
 # the application main window launches lists which in tern launches
 # dialogs which in turn are made from items
@@ -167,7 +165,7 @@ class FitnessApp(hildon.Program):
         self.draw()
     def __init__(self):
         hildon.Program.__init__(self)
-        self.context = osso.Context("fitness", version, False)
+        self.context = osso.Context(service, version, False)
         self.autosave = osso.Autosave(self.context)
         # because of bug in osso.Autosave you must pass a call-back data
         self.autosave.set_autosave_callback(self.save,1)

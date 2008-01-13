@@ -4,7 +4,9 @@ from os import makedirs, chdir, environ
 from os.path import join, expanduser
 
 version = "<unknown>" # set during packaging 
+service = "fitness" # set during packaging
 environ["FITNESS_VERSION"] = version
+environ["FITNESS_SERVICE"] = service
 
 home = expanduser(join("~", ".fitness"))
 try:
