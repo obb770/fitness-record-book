@@ -9,6 +9,7 @@ from base64 import b64encode
 from StringIO import StringIO
 
 name = "fitness"
+serviceprefix = "com.googlecode.FitnessRecordBook"
 arch = "all"
 size = "0"
 
@@ -26,6 +27,27 @@ Description: Fitness record book
  Calorie counter application for the Internet Tablet
  .
 """
+
+servicefilename = "%s.%s.service" % (serviceprefix, name)
+servicefile = """[D-BUS Service]
+Name=%s.%s
+Exec=/usr/bin/%s
+""" % (serviceprefix, name, name)
+
+desktopfilename = "%s.desktop" % (name,)
+desktopfile = """[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=Application
+Name=Fitness
+Exec=/usr/bin/%s
+Icon=%s
+StartupWMClass=%s
+X-Window-Icon=%s
+X-Window-Icon-Dimmed=%s
+X-Osso-Service=%s.%s
+X-Osso-Type=application/x-executable
+""" % (name, name, name, name, name, serviceprefix, name)
 
 # version
 if len(argv) > 1:
@@ -175,9 +197,12 @@ install(file(name + "_40x40.png", "rb"),
         join(icon_dir, "40x40", "hildon", name + ".png"))
 install(file(name + "_64x64.png", "rb"),
         join(icon_dir, "scalable", "hildon", name + ".png"))
-install(file(name + ".desktop", "rb"),
+install(StringIO(desktopfile),
         join(deb, "data", "usr", "share", "applications", "hildon", 
-             name + ".desktop"))
+             desktopfilename))
+install(StringIO(servicefile),
+        join(deb, "data", "usr", "share", "dbus-1", "services", 
+             servicefilename))
 install(file("README.txt", "rb"),
         join(deb, "data", "usr", "share", "doc", name, "copyright"))
 
@@ -220,9 +245,9 @@ set_mode(md5sums)
 install(StringIO("""#!/bin/sh
 gtk-update-icon-cache -f /usr/share/icons/hicolor
 if [ "$1" = "configure" -a "$2" = "" ]; then
-  maemo-select-menu-location fitness.desktop tana_fi_extras
+  maemo-select-menu-location %s.desktop tana_fi_extras
 fi
-"""), join(deb, "control", "postinst"), True)
+""" % (name,)), join(deb, "control", "postinst"), True)
 
 install(StringIO("""#!/bin/sh
 rm -f /usr/lib/python2.5/site-packages/%s/*.pyo
