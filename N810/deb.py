@@ -173,12 +173,14 @@ mkdir(deb)
 
 # data
 
-# set the version
+# set the version and service name
 f = file(name, "rb")
 s = StringIO()
 for line in f:
     if line.startswith('version = "<unknown>"'):
         s.write('version = "%s"\n' % (version,))
+    elif line.startswith('service = "fitness"'):
+        s.write('service = "%s.%s"\n' % (serviceprefix, name))
     else:
         s.write(line)
 s.seek(0)
