@@ -4,7 +4,7 @@ http://benreuven.com/udiwiki/index.php?title=Fitness_Record_Book#Nokia_Internet_
 
 = How to build a package =
 
-In a standard python distribution you can just run (hopefully this will run on the device too - tested on Ubuntu and Cygwin):
+In a standard python distribution you can just run (tested on Ubuntu, Cygwin and OS2008):
 {{{
 $ python deb.py [ <version> ]
 }}}
