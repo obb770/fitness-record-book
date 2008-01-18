@@ -21,11 +21,13 @@ Section: user/tools
 Priority: optional
 Architecture: %s
 Installed-Size: %s 
-Maintainer: obb770 <obb770@gmail.com>
-Depends: python2.5-runtime, hildon-application-manager
-Description: Fitness record book
- Calorie counter application for the Internet Tablet
+Maintainer: obb 770 <obb770@gmail.com>
+Depends: python2.5, python2.5-runtime, hildon-application-manager
+Description: Calorie counter application for the Internet Tablet
+ Manage your diet by keeping account of food and 
+ physical activity.
  .
+ Web site: http://benreuven.com/udi/diet
 """
 
 servicefilename = "%s.%s.service" % (serviceprefix, name)
@@ -91,6 +93,7 @@ def archive(arname, files):
 def set_mode(filename, executable=False):
     import stat
     mode = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+    mode = mode | stat.S_IWUSR
     if executable:
         mode = mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
     chmod(filename, mode)
@@ -105,23 +108,69 @@ def install(src, dst, executable=False):
     src.close()
     set_mode(dst, executable)
     
+def py_install(src, datadir, dst):
+    # from the py_compile.compile()
+    from time import time
+    mtime = time()
+    code = ""
+    if (src):
+        mtime = getmtime(src)
+        f = file(src, "U")
+        code = f.read()
+        f.close()
+        if code and code[-1] != "\n":
+            code += "\n"
+    mtime = int(mtime)
+    f = StringIO()
+    from imp import get_magic
+    f.write(get_magic())
+    f.write(chr(mtime & 0xff))
+    f.write(chr((mtime >> 8) & 0xff))
+    f.write(chr((mtime >> 16) & 0xff))
+    f.write(chr((mtime >> 24) & 0xff))
+    from marshal import dumps
+    f.write(dumps(compile(code, "/" + dst, "exec")))
+    f.seek(0, 0)
+    install(f, join(datadir, dst + "o"))
+
 def tar(tarname, root):
     import tarfile
     tf = tarfile.open(tarname, "w:gz")
     cwd = getcwd()
     chdir(root)
-    def add(path, is_dir=False):
+
+    def add(path):
         ti = tf.gettarinfo(path)
         ti.uid = 0
         ti.uname = "root"
         ti.gid = 0
         ti.gname = "root"
-        if is_dir:
-            tf.addfile(ti)
+        # TarInfo.tobuf() normalizes the path and removes the initial "./"
+        # this causes the "linda" tool to fail.
+        # Add "./" by intercepting the method and fixing the tar buffer
+        tobuf = ti.tobuf
+        def mytobuf(posix=False):
+            buf = tobuf(posix)
+            if not buf.startswith("./"):
+                if len(ti.name) > 98:
+                    raise Exception(
+                        "tar: path length must be shorter than 98 chars")
+                buf = "./" + buf[:(98 - 512)] + buf[(100 - 512):(148 - 512)] + \
+                      "        " + buf[(156 - 512):]
+                chksum = tarfile.calc_chksums(buf)[0]
+                buf = buf[:-364] + "%06o\0" % chksum + buf[-357:]
+                ti.buf = buf
+            return buf
+        ti.tobuf = mytobuf
+        if ti.isreg():
+            f = file(path, "rb")
+            tf.addfile(ti, f)
+            f.close()
         else:
-            tf.addfile(ti, file(path, "rb"))
+            tf.addfile(ti)
+
     for top, dirs, files in walk("."):
-        add(top, True)
+        add(top)
         for f in files:
             add(join(top, f))
     chdir(cwd)
@@ -156,7 +205,7 @@ def md5sum(path, md5file):
     chdir(path)
     for top, dirs, files in walk("."):
         for name in files:
-            f = open(join(top, name), "rb")
+            f = file(join(top, name), "rb")
             m = md5.new()
             while True:
                 buf = f.read(4096)
@@ -187,10 +236,10 @@ s.seek(0)
 f.close()
 install(s, join(deb, "data", "usr", "bin", name), True)
 
-pkg_dir = join(deb, "data", "usr", "lib", "python2.5", "site-packages", name)
-install(StringIO(""), join(pkg_dir, "__init__.py"))
+pkg_dir = join("usr", "lib", "python2.5", "site-packages", name)
+py_install(None, join(deb, "data"), join(pkg_dir, "__init__.py"))
 for pyfile in pyfiles:
-    install(file(pyfile, "rb"), join(pkg_dir, pyfile))
+    py_install(pyfile, join(deb, "data"), join(pkg_dir, pyfile))
 
 icon_dir = join(deb, "data", "usr", "share", "icons", "hicolor")
 install(file(name + "_26x26.png", "rb"),
@@ -208,7 +257,9 @@ install(StringIO(servicefile),
 install(file("README.txt", "rb"),
         join(deb, "data", "usr", "share", "doc", name, "copyright"))
 
-tar(join(deb, "data.tar.gz"), join(deb, "data"))
+chdir(deb)
+tar("data.tar.gz", "data")
+chdir("..")
 
 
 # control
@@ -251,12 +302,9 @@ if [ "$1" = "configure" -a "$2" = "" ]; then
 fi
 """ % (name,)), join(deb, "control", "postinst"), True)
 
-install(StringIO("""#!/bin/sh
-rm -f /usr/lib/python2.5/site-packages/%s/*.pyo
-""" 
-        % (name,)), join(deb, "control", "prerm"), True)
-
-tar(join(deb, "control.tar.gz"), join(deb, "control"))
+chdir(deb)
+tar("control.tar.gz", "control")
+chdir("..")
 
 install(StringIO("2.0\n"), join(deb, "debian-binary"));
 
