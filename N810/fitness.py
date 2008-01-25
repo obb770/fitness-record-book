@@ -4,8 +4,9 @@
 #      the dictonary which is based also on unit selected in dialog box
 #      there is no problem in upgrading existing CSV files because the _dict
 #      files already have the unit in each line.
-# TODO try using hildon.NumberEditor how to handle fractions? perhaps by
-#      using Int and adding more units
+# TODO Numeric fields should have the NumLock turned on by default.
+#      This is done with gtk.GetEntry.set_input_mode which is a Hildon extension.
+#      Sadly this is not in the current version of pymaemo c1.0-2
 # TODO remove old records in DateObjList accoring to OptionsDialog.history
 # TODO add to OptionsDialog the folder location for CSV files
 # TODO DateObj.run.Del
