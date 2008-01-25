@@ -111,7 +111,7 @@ class DateObjList(Dialog):
         self.edit_obj(obj)
     def edit_obj(self,obj):
         # run the edit dialog of the object
-        obj.run(self.parent_window)
+        obj.run(self.dialog)
         # The date of the object may have been changed and the entire list
         # needs to be resorted.
         # Rebuild the sorted list of objects and plug them into tree view.

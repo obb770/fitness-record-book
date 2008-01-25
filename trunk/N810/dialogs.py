@@ -29,8 +29,11 @@ class Dialog(object):
         by sub class
         """
         self.parent_window=parent_window
+        self.parent_window.hide_all()
+
         # Dont use gtk.Dialog and dont use modal because Nokia
         win=gtk.Window()
+        win.set_transient_for(self.parent_window)
         win.set_modal(True)
         win.connect("delete_event", self.delete_event)
         win.connect("destroy", self.destroy)
@@ -53,12 +56,11 @@ class Dialog(object):
             win.hbox.show()
         self.dialog=win
         self.dialog.set_size_request(*SZ)
-
     def delete_event(self, widget, event, data=None):
         return False
     def destroy(self, widget, data=None):
-        #self.parent_window.show_all()
-        pass
+        self.parent_window.show_all()
+        self.parent_window.present()
     def cancel_event(self, widget, data=None):
         self.dialog.destroy()
     def ok_event(self, widget, data=None):
@@ -102,7 +104,6 @@ class Dialog(object):
         table.show()
         self.dialog.show()
 
-        #self.parent_window.hide()
 
     def newvalues(self):
         self.is_new=True
