@@ -122,10 +122,10 @@ class FitnessApp(hildon.Program):
         self.paDialog.save()
         self.weightDialog.save()
     def menuitem_response(self, widget, data):
-        if data==0:
+        if data==1:
             self.optionsDialog.run(self.window)
             #self.draw()
-        elif data==1:
+        elif data==0:
             self.force_save()
         else:
             AboutDialog()
@@ -180,7 +180,8 @@ class FitnessApp(hildon.Program):
 
         menu = gtk.Menu()
         c=0
-        for l in ["Options...","Save","About..."]:
+        # put Save first
+        for l in ["Save","Options...","About..."]:
             menu_items = gtk.MenuItem(l)
             menu.append(menu_items)
             menu_items.connect("activate", self.menuitem_response, c)
