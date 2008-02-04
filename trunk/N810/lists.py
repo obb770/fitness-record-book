@@ -100,7 +100,9 @@ class DateObjList(Dialog):
         win.hbox.pack_start(win.bNew, True, True)
         win.vbox.pack_end(win.hbox, False)
 
-        win.show_all()
+        self.endrun()
+        # POP UP lists
+        #win.show_all()
 
         #self.parent_window.hide()
     def edit(self, treeview, path, column):

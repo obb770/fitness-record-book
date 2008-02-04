@@ -17,7 +17,7 @@
 
 # The below license appears in the About dialog-box
 license = """Fitness Record Book
-2007 Ehud (Udi) Ben-Reuven & Ofer Barkai
+2007-8 Ehud (Udi) Ben-Reuven & Ofer Barkai
 Derived from:
 Copyright 1997 Eric W. Sink
 
@@ -75,7 +75,7 @@ class AboutDialog(gtk.AboutDialog):
         self.set_website("http://benreuven.com/udi/diet")
         self.set_comments("You must agree to the license\nbefore using this program")
         self.set_authors(["Eric W. Sink","Ehud (Udi) Ben-Reuven","Ofer Barkai"])
-        self.set_copyright("""Copyright (c) 1997 Eric W. Sink\nCopyright (c) 2000-4 Ehud (Udi) Ben-Reuven\nCopyright (c) 2007 Ehud (Udi) Ben-Reuven & Ofer Barkai""")
+        self.set_copyright("""Copyright (c) 1997 Eric W. Sink\nCopyright (c) 2000-4 Ehud (Udi) Ben-Reuven\nCopyright (c) 2007-8 Ehud (Udi) Ben-Reuven & Ofer Barkai""")
         self.set_license(license)
         self.run()
         self.destroy()
@@ -267,5 +267,9 @@ class FitnessApp(hildon.Program):
     def run(self):
         gtk.main()
 
-app = FitnessApp()
-app.run()
+def main():
+    app = FitnessApp()
+    app.run()
+
+if __name__=='__main__': 
+    main()

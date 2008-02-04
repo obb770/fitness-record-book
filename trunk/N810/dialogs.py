@@ -29,7 +29,7 @@ class Dialog(object):
         by sub class
         """
         self.parent_window=parent_window
-        self.parent_window.hide_all()
+        #self.parent_window.hide_all()
 
         # Dont use gtk.Dialog and dont use modal because Nokia
         win=gtk.Window()
@@ -39,7 +39,7 @@ class Dialog(object):
         win.connect("destroy", self.destroy)
         win.vbox=gtk.VBox()
         win.add(win.vbox)
-        win.vbox.show()
+        ##win.vbox.show()
         # create a box for the bottom row of keys.
         win.hbox = gtk.HBox()
         win.hbox.set_size_request(-1,60)
@@ -49,11 +49,11 @@ class Dialog(object):
             win.bCancel = gtk.Button('Cancel')
             win.bCancel.connect('clicked', self.cancel_event)
             win.hbox.pack_start(win.bOK, True, True)
-            win.bOK.show()
+            ##win.bOK.show()
             win.hbox.pack_start(win.bCancel, True, True)
-            win.bCancel.show()
+            ##win.bCancel.show()
             win.vbox.pack_end(win.hbox, False)
-            win.hbox.show()
+            ##win.hbox.show()
         self.dialog=win
         self.dialog.set_size_request(*SZ)
     def delete_event(self, widget, event, data=None):
@@ -94,15 +94,18 @@ class Dialog(object):
             label = gtk.Label(l)
             label.set_alignment(0, 0)
             table.attach(label,0,1,r,r+1)
-            label.show()
+            #label.show()
             entry=attr.entry(self)
             self.entries.append(entry)
             table.attach(entry,1,2,r,r+1)
-            entry.show()
+            #entry.show()
 
         self.dialog.vbox.pack_start(table, False, False, 0)
-        table.show()
-        self.dialog.show()
+        #table.show()
+        self.endrun()
+    def endrun(self):
+        self.dialog.show_all()
+        self.parent_window.hide_all()
 
 
     def newvalues(self):
