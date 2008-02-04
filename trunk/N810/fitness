@@ -15,5 +15,5 @@ except:
     pass
 chdir(home)
 import fitness.fitness
-fitgness.fitness.main()
+fitness.fitness.main()
 
