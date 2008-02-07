@@ -117,10 +117,11 @@ class Completion(object):
         print 'insert',prefix 
         d=self.dialog
         p=self.parentDialog
-        o=p.dict[prefix]
-        for r,l in enumerate(d.attributes):
-            attr=o.__getattribute__(l)
-            attr.setentry(d.entries[r])
+        o=p.dict.get(prefix,None)
+        if o:
+            for r,l in enumerate(d.attributes):
+                attr=o.__getattribute__(l)
+                attr.setentry(d.entries[r])
     def __str__(self):
         return self.txt
     def setentry(self,entry):

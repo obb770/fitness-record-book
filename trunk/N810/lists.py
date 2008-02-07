@@ -63,14 +63,8 @@ class DateObjList(Dialog):
             return cmp(obj1,obj2)
         else:
             return 1 #When adding a new entry, one of the objs is None.
-    def run(self,parent_window):
-        """Run the dialog window for managing the list of objects
-	parent_window - the window from which this window was launched
-	"""
-        self.parent_window=parent_window
-        self.make_dialog(parent_window,OKCancel=False)
-        win=self.dialog
-
+    def build_run(self,parent_window):
+ 
         # create the TreeView
         sm = gtk.TreeModelSort(self.liststore)
         sm.set_sort_func(0,self.date_sort)
@@ -86,6 +80,17 @@ class DateObjList(Dialog):
             self.treeview.append_column(self.tvcolumn[n])
 
         self.treeview.connect('row-activated', self.edit)
+
+    def run(self,parent_window):
+        """Run the dialog window for managing the list of objects
+	parent_window - the window from which this window was launched
+	"""
+        self.parent_window=parent_window
+        self.make_dialog(parent_window,OKCancel=False)
+        win=self.dialog
+
+        #self.build_run(parent_window)
+
         self.scrolledwindow = gtk.ScrolledWindow()
         self.scrolledwindow.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
         self.scrolledwindow.add(self.treeview)
@@ -101,10 +106,9 @@ class DateObjList(Dialog):
         win.vbox.pack_end(win.hbox, False)
 
         self.endrun()
-        # POP UP lists
-        #win.show_all()
-
-        #self.parent_window.hide()
+    def destroy(self, widget, data=None):
+        self.scrolledwindow.remove(self.treeview)        
+        Dialog.destroy(self,widget,data)
     def edit(self, treeview, path, column):
         """Edit an entry when an item in the list is double clicked"""
         model = treeview.get_model()
