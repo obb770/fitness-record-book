@@ -6,7 +6,7 @@ More information at:
 http://benreuven.com/udiwiki/index.php?title=Fitness_Record_Book#Python_edition
 
 = License =
-Copyright 2000-4,2007 Ehud (Udi) Ben-Reuven
+Copyright 2000-4,2007-8 Ehud (Udi) Ben-Reuven
 Derived from:
 Copyright 1997 Eric W. Sink
 

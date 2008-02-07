@@ -121,6 +121,12 @@ class FitnessApp(hildon.Program):
         self.foodDialog.save()
         self.paDialog.save()
         self.weightDialog.save()
+    def newfood_response(self, widget):
+        self.foodDialog.parent_window=self.window
+        self.foodDialog.dialog=self.window
+        self.foodDialog.new_event(None)
+    def save_response(self, widget):
+            self.force_save()        
     def menuitem_response(self, widget, data):
         if data==1:
             self.optionsDialog.run(self.window)
@@ -247,14 +253,28 @@ class FitnessApp(hildon.Program):
             table.attach(button,c,c+1,r,r+2)
             button.show()
         r=r+2
+     
+        button=gtk.Button("New Food")
+        button.connect("clicked", self.newfood_response)
+        table.attach(button,0,2,r,r+2)
+        button.show()
+        button=gtk.Button("Save")
+        button.connect("clicked", self.save_response)
+        table.attach(button,2,3,r,r+2)
+        button.show()
+        r=r+2
+
 
         self.window.add(table)
         table.show()
         self.window.show()
         self.optionsDialog = OptionsDialog(self)
         self.weightDialog = WeightList(self)
+        self.weightDialog.build_run(self.window)
         self.paDialog=PAList(self)
+        self.paDialog.build_run(self.window)
         self.foodDialog=FoodList(self)
+        self.foodDialog.build_run(self.window)
 
         self.load()
         if self.optionsDialog.is_new:
