@@ -117,7 +117,6 @@ class FitnessApp(hildon.Program):
         self.values[5].set_text(str(days))
         self.values[6].set_text('%.1f'%left)
 
-        self.newfood.grab_focus()
     def save(self, user_data=None):
         self.optionsDialog.save()
         self.foodDialog.save()
@@ -257,7 +256,7 @@ class FitnessApp(hildon.Program):
         r=r+2
      
         button=gtk.Button("New Food")
-        self.newfood=button
+        self.window.my_focus=button
         button.connect("clicked", self.newfood_response)
         table.attach(button,0,2,r,r+2)
         button.show()
@@ -283,7 +282,8 @@ class FitnessApp(hildon.Program):
         if self.optionsDialog.is_new:
             AboutDialog()
             self.optionsDialog.run(self.window)
-
+            
+        self.window.set_focus(self.window.my_focus)
     def load(self):
         self.today()
         self.draw()

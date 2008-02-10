@@ -61,6 +61,10 @@ class Dialog(object):
     def destroy(self, widget, data=None):
         self.parent_window.show_all()
         self.parent_window.present()
+        try:
+            self.parent_window.set_focus(self.parent_window.my_focus)
+        except:
+            pass
     def cancel_event(self, widget, data=None):
         self.dialog.destroy()
     def ok_event(self, widget, data=None):
