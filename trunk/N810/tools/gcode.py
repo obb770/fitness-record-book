@@ -158,9 +158,9 @@ Usage: %s delete <project> <file-name>
        %s upload <project> <file-name> <summary> [<label>,<label>,...]
 """ 
               % (argv[0], argv[0]), "")
-    if argv[1] == "delete" and len(argv) == 4:
+    if len(argv) == 4 and argv[1] == "delete":
         result = delete(argv[2], argv[3])
-    elif argv[1] == "upload" and len(argv) >= 5:
+    elif len(argv) >= 5 and argv[1] == "upload":
         labels = None
         if len(argv) >= 6:
             labels = argv[5].split(",")
