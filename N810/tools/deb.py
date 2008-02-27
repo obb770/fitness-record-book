@@ -22,12 +22,14 @@ Priority: optional
 Architecture: %s
 Installed-Size: %s 
 Maintainer: obb 770 <obb770@gmail.com>
-Depends: python2.5, python2.5-runtime, hildon-application-manager
+Depends: python2.5, python2.5-runtime, maemo-select-menu-location
 Description: Calorie counter application for the Internet Tablet
  Manage your diet by keeping account of food and 
  physical activity.
  .
  Web site: http://benreuven.com/udi/diet
+Maemo-Icon-26:
+ %s
 """
 
 servicefilename = "%s.%s.service" % (serviceprefix, name)
@@ -272,21 +274,15 @@ size = "%d" % (du(join(deb, "data")),)
 f = file(join(icon_dir, "26x26", "hildon", name + ".png"), "rb")
 icon = f.read()
 f.close()
-icon = b64encode(icon)
-icon_field = "Maemo-Icon-26:\n "
 icon_chars = []
-count = 0
-for c in icon:
-    if count >= 69:
+for i, c in enumerate(b64encode(icon)):
+    icon_chars.append(c)
+    if (i + 1) % 69 == 0:
         icon_chars.append("\n")
         icon_chars.append(" ")
-        count = 0
-    icon_chars.append(c)
-    count += 1
-icon_chars.append("\n")
-icon_field += "".join(icon_chars)
+icon = "".join(icon_chars)
 
-install(StringIO(control % (name, version, arch, size) + icon_field),
+install(StringIO(control % (name, version, arch, size, icon)),
         join(deb, "control", "control"))
 
 md5sums = join(deb, "control", "md5sums")
