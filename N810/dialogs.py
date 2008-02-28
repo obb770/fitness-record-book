@@ -33,6 +33,7 @@ class Dialog(object):
 
         # Dont use gtk.Dialog and dont use modal because Nokia
         win=gtk.Window()
+        win.set_title("Fitness Record Book")
         win.set_transient_for(self.parent_window)
         win.set_modal(True)
         win.connect("delete_event", self.delete_event)
