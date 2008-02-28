@@ -68,7 +68,7 @@ from lists import *
 class AboutDialog(gtk.AboutDialog):
     def __init__(self):
         gtk.AboutDialog.__init__(self)
-        self.set_size_request(*SZ)
+        #self.set_size_request(*SZ)
         self.set_logo_icon_name("fitness")
         self.set_name("Fitness Record Book")
         self.set_version(version)
@@ -134,8 +134,10 @@ class FitnessApp(hildon.Program):
             #self.draw()
         elif data==0:
             self.force_save()
-        else:
+        elif data==2:
             AboutDialog()
+        elif data==3:
+            self.quit(None)
 
     def today(self):
         t=datetime.date.today()
@@ -179,6 +181,7 @@ class FitnessApp(hildon.Program):
         self.autosave.set_autosave_callback(self.save,1)
         self.connect("notify::is-topmost", self.topmost_change)
         
+        gtk.set_application_name("")
         self.window = hildon.Window()
         self.window.set_size_request(*SZ)
         self.window.set_title("Fitness Record Book")
@@ -188,7 +191,7 @@ class FitnessApp(hildon.Program):
         menu = gtk.Menu()
         c=0
         # put Save first
-        for l in ["Save","Options...","About..."]:
+        for l in ["Save","Options...","About...","Close"]:
             menu_items = gtk.MenuItem(l)
             menu.append(menu_items)
             menu_items.connect("activate", self.menuitem_response, c)
